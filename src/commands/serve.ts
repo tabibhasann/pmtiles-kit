@@ -8,7 +8,7 @@ const VIEWER_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>pmtiles-kit Viewer</title>
-<script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"><\/script>
+<script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
 <link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
 <style>
   body { margin: 0; padding: 0; }
@@ -48,7 +48,7 @@ map.on("load", () => {
     "Zooms: " + header.minZoom + "-" + header.maxZoom + "<br>" +
     "Tiles: " + header.tileCount;
 });
-<\/script>
+</script>
 </body>
 </html>`;
 

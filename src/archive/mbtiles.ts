@@ -1,5 +1,5 @@
 import Database from "better-sqlite3";
-import { Archive, TileArchiveHeader } from "./types";
+import { Archive, TileArchiveHeader, TileCoordinate } from "./types";
 import { tmsToXYZ } from "../util/bytes";
 
 export class MBTilesArchive implements Archive {
@@ -45,14 +45,23 @@ export class MBTilesArchive implements Archive {
       }
     }
 
-    const bounds = metadata["bounds"]
+    const boundsRaw = metadata["bounds"]
       ? (metadata["bounds"].split(",").map(Number) as [
           number,
           number,
           number,
           number
         ])
-      : ([-85, -180, 85, 180] as [number, number, number, number]);
+      : ([-180, -85, 180, 85] as [number, number, number, number]);
+    
+    // MBTiles stores bounds as [west, south, east, north]
+    // Convert to internal format [south, west, north, east]
+    const bounds: [number, number, number, number] = [
+      boundsRaw[1], // south
+      boundsRaw[0], // west
+      boundsRaw[3], // north
+      boundsRaw[2], // east
+    ];
 
     const center = metadata["center"]
       ? (metadata["center"].split(",").map(Number) as [
@@ -136,6 +145,24 @@ export class MBTilesArchive implements Archive {
       .prepare("SELECT DISTINCT zoom_level FROM tiles ORDER BY zoom_level")
       .all() as { zoom_level: number }[];
     return rows.map((r) => r.zoom_level);
+  }
+
+  async *listTiles(): AsyncIterable<TileCoordinate> {
+    if (!this.db) return;
+    
+    // Query all tile coordinates directly from the database
+    const rows = this.db
+      .prepare("SELECT zoom_level, tile_column, tile_row FROM tiles")
+      .all() as { zoom_level: number; tile_column: number; tile_row: number }[];
+    
+    for (const row of rows) {
+      // Convert from TMS (stored in DB) to XYZ (our API)
+      yield {
+        z: row.zoom_level,
+        x: row.tile_column,
+        y: tmsToXYZ(row.zoom_level, row.tile_row),
+      };
+    }
   }
 
   async close(): Promise<void> {

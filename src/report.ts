@@ -1,4 +1,4 @@
-import { ValidationReport } from "../archive/types";
+import { ValidationReport } from "./archive/types";
 
 export function prettyReport(report: ValidationReport): string {
   const lines: string[] = [];

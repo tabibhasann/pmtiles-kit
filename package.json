@@ -1,6 +1,6 @@
 {
   "name": "pmtiles-kit",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "The missing Swiss-army knife for PMTiles and MBTiles — inspect, validate, convert, and preview map tile archives",
   "license": "MIT",
   "author": "Tabib Hasan",

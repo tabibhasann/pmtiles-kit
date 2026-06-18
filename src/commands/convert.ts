@@ -1,13 +1,18 @@
 import Database from "better-sqlite3";
 import { existsSync } from "fs";
-import { ConvertReport } from "../archive/types";
+import { gzipSync } from "zlib";
+import { ConvertReport, TileArchiveHeader, PMTilesCompression, TileType } from "../archive/types";
 import { openArchive } from "../archive/open";
-import { tmsToXYZ } from "../util/bytes";
+import { buildPMTiles, WriterEntry, zxyToTileId } from "../archive/writer";
 
-function yXyzToTms(z: number, y: number): number {
-  return tmsToXYZ(z, y); // same formula: TMS↔XYZ is its own inverse
-}
-
+/**
+ * Convert a tile archive (PMTiles or MBTiles) to a different format.
+ *
+ * - .mbtiles → .pmtiles: uses the pure-JS v3 writer
+ * - .mbtiles → .mbtiles: direct SQLite copy (passthrough via the writer)
+ * - .pmtiles → .mbtiles: re-wraps into a new SQLite MBTiles database
+ * - .pmtiles → .pmtiles: re-wraps through the writer (useful for re-clustering)
+ */
 export async function convertCommand(
   src: string,
   dst: string
@@ -16,7 +21,6 @@ export async function convertCommand(
     throw new Error(`Output file already exists: ${dst}`);
   }
 
-  const srcExt = src.split(".").pop()?.toLowerCase();
   const dstExt = dst.split(".").pop()?.toLowerCase();
   const isToPMTiles = dstExt === "pmtiles";
 
@@ -30,110 +34,255 @@ export async function convertCommand(
   };
 
   if (isToPMTiles) {
-    // MBTiles → PMTiles
-    // For simplicity in this MVP: create a JSON-based PMTiles-like format
-    // Since native PMTiles writing requires raw binary packing, we'll create
-    // a directory-based archive for testing and note the limitation
-
-    // Actually, the pmtiles npm package is primarily a reader. For writing,
-    // we'll create an MBTiles file from PMTiles or a directory layout.
-    // For the MVP, we'll implement: PMTiles → MBTiles and MBTiles → MBTiles copy.
-    report.warnings.push(
-      "PMTiles writing requires the pmtiles CLI tool (go-pmtiles). " +
-      "Use: pmtiles convert input.mbtiles output.pmtiles"
-    );
-
-    // Create an MBTiles from the source (PMTiles → MBTiles is achievable)
-    const targetDb = new Database(dst);
-    targetDb.exec(`
-      CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT);
-      CREATE TABLE IF NOT EXISTS tiles (
-        zoom_level INTEGER,
-        tile_column INTEGER,
-        tile_row INTEGER,
-        tile_data BLOB
-      );
-      CREATE UNIQUE INDEX IF NOT EXISTS tile_index ON tiles (zoom_level, tile_column, tile_row);
-    `);
-
-    // Copy metadata
-    const metadata = await srcArchive.getMetadata();
-    const insertMeta = targetDb.prepare(
-      "INSERT INTO metadata (name, value) VALUES (?, ?)"
-    );
-    for (const [key, value] of Object.entries(metadata)) {
-      insertMeta.run(key, String(value));
-    }
-
-    // Copy tiles
-    const insertTile = targetDb.prepare(
-      "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)"
-    );
-    const zooms = await srcArchive.listZooms();
-
-    targetDb.exec("BEGIN");
-    for (const z of zooms) {
-      // Iterate over a reasonable bounding range
-      const maxTile = 1 << z;
-      for (let x = 0; x < maxTile && report.tileCount < 100000; x++) {
-        for (let y = 0; y < maxTile && report.tileCount < 100000; y++) {
-          const tile = await srcArchive.getTile(z, x, y);
-          if (tile) {
-            // Store in TMS (flip Y)
-            const yTms = yXyzToTms(z, y);
-            insertTile.run(z, x, yTms, tile);
-            report.tileCount++;
-          }
-        }
-      }
-    }
-    targetDb.exec("COMMIT");
-    targetDb.close();
+    await convertToPMTiles(srcArchive, dst, report);
   } else {
-    // PMTiles → MBTiles: same path
-    const targetDb = new Database(dst);
-    targetDb.exec(`
-      CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT);
-      CREATE TABLE IF NOT EXISTS tiles (
-        zoom_level INTEGER,
-        tile_column INTEGER,
-        tile_row INTEGER,
-        tile_data BLOB
-      );
-      CREATE UNIQUE INDEX IF NOT EXISTS tile_index ON tiles (zoom_level, tile_column, tile_row);
-    `);
-
-    const metadata = await srcArchive.getMetadata();
-    const insertMeta = targetDb.prepare(
-      "INSERT INTO metadata (name, value) VALUES (?, ?)"
-    );
-    for (const [key, value] of Object.entries(metadata)) {
-      insertMeta.run(key, String(value));
-    }
-
-    const insertTile = targetDb.prepare(
-      "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)"
-    );
-    const zooms = await srcArchive.listZooms();
-
-    targetDb.exec("BEGIN");
-    for (const z of zooms) {
-      const maxTile = 1 << z;
-      for (let x = 0; x < maxTile && report.tileCount < 100000; x++) {
-        for (let y = 0; y < maxTile && report.tileCount < 100000; y++) {
-          const tile = await srcArchive.getTile(z, x, y);
-          if (tile) {
-            insertTile.run(z, x, y, tile);
-            report.tileCount++;
-          }
-        }
-      }
-    }
-    targetDb.exec("COMMIT");
-    targetDb.close();
+    await convertToMBTiles(srcArchive, dst, report);
   }
 
   await srcArchive.close();
 
-  return `Converted ${report.sourceFormat} → ${report.targetFormat}\nTiles: ${report.tileCount}\nWarnings: ${report.warnings.length ? report.warnings.join("; ") : "none"}`;
+  const warnSuffix = report.warnings.length
+    ? `\nWarnings: ${report.warnings.join("; ")}`
+    : "\nWarnings: none";
+  return `Converted ${report.sourceFormat} → ${report.targetFormat}\nTiles: ${report.tileCount}${warnSuffix}`;
+}
+
+/**
+ * Convert any archive to MBTiles. We pull every tile from the source via the
+ * Archive interface and write them into a fresh SQLite database.
+ */
+async function convertToMBTiles(
+  srcArchive: import("../archive/types").Archive,
+  dst: string,
+  report: ConvertReport
+): Promise<void> {
+  const targetDb = new Database(dst);
+
+  targetDb.exec(`
+    CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT);
+    CREATE TABLE IF NOT EXISTS tiles (
+      zoom_level INTEGER,
+      tile_column INTEGER,
+      tile_row INTEGER,
+      tile_data BLOB
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS tile_index ON tiles (zoom_level, tile_column, tile_row);
+  `);
+
+  // Copy metadata (with PMTiles -> MBTiles key normalization)
+  const metadata = await srcArchive.getMetadata();
+  const normalized: Record<string, string> = {};
+  for (const [key, value] of Object.entries(metadata)) {
+    if (key === "vector_layers" || typeof value === "object") {
+      normalized[key] = JSON.stringify(value);
+    } else {
+      normalized[key] = String(value);
+    }
+  }
+  // Ensure a "format" key exists
+  if (!normalized.format) {
+    normalized.format = "pbf";
+  }
+  // MBTiles bounds are [west, south, east, north]
+  const srcHeader = await srcArchive.getHeader();
+  if (!normalized.bounds) {
+    const [s, w, n, e] = srcHeader.bounds;
+    normalized.bounds = `${w},${s},${e},${n}`;
+  }
+
+  const insertMeta = targetDb.prepare(
+    "INSERT INTO metadata (name, value) VALUES (?, ?)"
+  );
+  for (const [key, value] of Object.entries(normalized)) {
+    insertMeta.run(key, value);
+  }
+
+  const insertTile = targetDb.prepare(
+    "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)"
+  );
+
+  const totalTiles = srcHeader.tileCount;
+  console.log(`Converting ${totalTiles} tiles to MBTiles...`);
+
+  // MBTiles convention: vector tiles are stored gzipped. The PMTiles reader
+  // transparently decompresses, so we need to re-gzip here unless the user
+  // asked for raw bytes (format != pbf).
+  const shouldGzip = (normalized.format || "").toLowerCase() === "pbf";
+
+  let lastProgress = Date.now();
+  targetDb.exec("BEGIN");
+  for await (const { z, x, y } of srcArchive.listTiles()) {
+    const tile = await srcArchive.getTile(z, x, y);
+    if (tile) {
+      const bytes = shouldGzip
+        ? Buffer.from(gzipSync(Buffer.from(tile)))
+        : Buffer.from(tile);
+      // yXyz -> yTms for storage
+      const yTms = (1 << z) - 1 - y;
+      insertTile.run(z, x, yTms, bytes);
+      report.tileCount++;
+      const now = Date.now();
+      if (now - lastProgress > 1000) {
+        const progress = totalTiles > 0 ? ((report.tileCount / totalTiles) * 100).toFixed(1) : "?";
+        console.log(`Progress: ${report.tileCount}/${totalTiles} tiles (${progress}%)`);
+        lastProgress = now;
+      }
+    }
+  }
+  targetDb.exec("COMMIT");
+
+  console.log(`Conversion complete: ${report.tileCount} tiles written`);
+  targetDb.close();
+}
+
+/**
+ * Convert any archive to PMTiles using the pure-JS v3 writer.
+ */
+async function convertToPMTiles(
+  srcArchive: import("../archive/types").Archive,
+  dst: string,
+  report: ConvertReport
+): Promise<void> {
+  const srcHeader = await srcArchive.getHeader();
+
+  // Collect every tile and accumulate tile data (offset/length into the blob)
+  const entries: WriterEntry[] = [];
+  const blobs: Uint8Array[] = [];
+  let runningOffset = 0;
+  let deduplicated = 0;
+  const seen = new Map<string, number>(); // sha-ish: bytes hash -> offset
+
+  // Tiles must be sorted by tileId (Hilbert). Pull them all then sort.
+  console.log(`Collecting tiles from ${srcHeader.format}...`);
+  const collected: { z: number; x: number; y: number; bytes: Uint8Array }[] = [];
+  for await (const { z, x, y } of srcArchive.listTiles()) {
+    const tile = await srcArchive.getTile(z, x, y);
+    if (tile) {
+      collected.push({ z, x, y, bytes: tile });
+    }
+  }
+
+  // Sort by Hilbert TileID
+  collected.sort((a, b) => zxyToTileId(a.z, a.x, a.y) - zxyToTileId(b.z, b.x, b.y));
+
+  // Deduplicate by exact bytes; consecutive identical runs collapse via runLength.
+  let currentRun: WriterEntry | null = null;
+  for (const { z, x, y, bytes } of collected) {
+    const key = bytesKey(bytes);
+    let blobOffset = seen.get(key);
+    if (blobOffset === undefined) {
+      blobOffset = runningOffset;
+      seen.set(key, blobOffset);
+      blobs.push(bytes);
+      runningOffset += bytes.length;
+    } else {
+      deduplicated += 1;
+    }
+    const tileId = zxyToTileId(z, x, y);
+    if (currentRun && currentRun.offset === blobOffset && currentRun.length === bytes.length) {
+      currentRun.runLength += 1;
+    } else {
+      currentRun = {
+        tileId,
+        offset: blobOffset,
+        length: bytes.length,
+        runLength: 1,
+      };
+      entries.push(currentRun);
+    }
+    report.tileCount++;
+  }
+
+  if (deduplicated > 0) {
+    report.warnings.push(
+      `${deduplicated} duplicate tile(s) collapsed via run-length encoding`
+    );
+  }
+
+  // Concatenate the tile data section
+  const totalTileBytes = runningOffset;
+  const tileData = new Uint8Array(totalTileBytes);
+  let pos = 0;
+  for (const b of blobs) {
+    tileData.set(b, pos);
+    pos += b.length;
+  }
+
+  // Determine tile type & compression. Prefer the actual bytes if the
+  // source declared a compression that doesn't match the data (this is
+  // common with synthetic test fixtures and some hand-made MBTiles).
+  const tileType = inferTileType(srcHeader);
+  let tileCompression = inferCompression(srcHeader);
+  if (blobs.length > 0) {
+    const actual = detectCompression(blobs[0]!);
+    if (actual !== "unknown") {
+      tileCompression = actual;
+    }
+  }
+
+  // Metadata for the PMTiles archive (pass through what we can)
+  const meta = await srcArchive.getMetadata();
+  const outMeta: Record<string, unknown> = { ...meta };
+
+  // Bounds are [south, west, north, east] internally; convert to lon/lat
+  const [minLat, minLon, maxLat, maxLon] = srcHeader.bounds;
+
+  console.log(`Writing PMTiles v3 archive (${entries.length} entries, ${totalTileBytes} bytes of tile data)...`);
+  const result = buildPMTiles(entries, tileData, {
+    minZoom: srcHeader.minZoom,
+    maxZoom: srcHeader.maxZoom,
+    minLon,
+    minLat,
+    maxLon,
+    maxLat,
+    centerZoom: srcHeader.center ? srcHeader.center[2] : Math.floor((srcHeader.minZoom + srcHeader.maxZoom) / 2),
+    centerLon: srcHeader.center ? srcHeader.center[0] : (minLon + maxLon) / 2,
+    centerLat: srcHeader.center ? srcHeader.center[1] : (minLat + maxLat) / 2,
+    tileType,
+    tileCompression,
+    metadata: outMeta,
+  });
+
+  const { writeFileSync } = await import("fs");
+  writeFileSync(dst, result.bytes);
+  console.log(`Wrote ${result.bytes.length} bytes to ${dst}`);
+}
+
+function inferTileType(header: TileArchiveHeader): TileType {
+  if (header.tileType === "mvt" || header.tileType === "vector") return "mvt";
+  if (header.tileType === "png") return "png";
+  if (header.tileType === "jpeg") return "jpeg";
+  if (header.tileType === "webp") return "webp";
+  if (header.tileType === "avif") return "avif";
+  return "unknown";
+}
+
+function inferCompression(header: TileArchiveHeader): PMTilesCompression {
+  const c = (header.compression || "").toString().toLowerCase();
+  if (c === "gzip") return "gzip";
+  if (c === "brotli") return "brotli";
+  if (c === "zstd") return "zstd";
+  if (c === "none" || c === "identity") return "none";
+  // Default for MBTiles is gzip
+  if (header.format === "mbtiles") return "gzip";
+  return "unknown";
+}
+
+/** Auto-detect compression from raw tile bytes by looking at the magic. */
+function detectCompression(bytes: Uint8Array): PMTilesCompression {
+  if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) return "gzip";
+  if (bytes.length >= 4 && bytes[0] === 0x28 && bytes[1] === 0xb5) return "zstd";
+  return "none";
+}
+
+function bytesKey(b: Uint8Array): string {
+  // Use a full FNV-1a hash so that any two distinct byte sequences produce
+  // distinct keys (with probability 1/2^32 for collision). This is more
+  // reliable than a head+tail sample for short test tiles.
+  let hash = 0x811c9dc5;
+  for (let i = 0; i < b.length; i++) {
+    hash ^= b[i]!;
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return `${b.length}:${(hash >>> 0).toString(16)}`;
 }

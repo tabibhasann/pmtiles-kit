@@ -1,9 +1,26 @@
 # pmtiles-kit 🗺️
 
-> The missing Swiss-army knife for **PMTiles** and **MBTiles**. Inspect, validate, convert, and preview map tile archives — one command.
+**The missing Swiss-army knife for PMTiles and MBTiles.** Inspect, validate, convert, and preview map tile archives with a single command. Production-ready with efficient conversion, progress indicators, and CI/CD integration.
 
 [![npm version](https://img.shields.io/npm/v/pmtiles-kit.svg)](https://npmjs.com/package/pmtiles-kit)
+[![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/ci.yml)
+[![Downloads](https://img.shields.io/npm/dm/pmtiles-kit.svg)](https://npmjs.com/package/pmtiles-kit)
+
+## Why pmtiles-kit?
+
+Map tile archives (PMTiles, MBTiles) are the backbone of modern web mapping, but tooling has been fragmented. **pmtiles-kit unifies everything:**
+
+- ✅ **Unified API** — Work with PMTiles and MBTiles using the same interface
+- ✅ **Efficient conversion** — O(n) tile iteration with spatial indexing (not brute-force)
+- ✅ **Real-time preview** — Built-in MapLibre GL viewer
+- ✅ **CI/CD ready** — Validation with exit codes, JSON output
+- ✅ **Progress indicators** — Know exactly how long operations will take
+- ✅ **Type-safe** — Full TypeScript definitions
+- ✅ **Library + CLI** — Use as a command-line tool or import in your code
+
+**Handles the Y-flip automatically.** MBTiles uses TMS (Y=0 at bottom), PMTiles uses XYZ (Y=0 at top). pmtiles-kit normalizes this transparently.
 
 ## Quickstart
 

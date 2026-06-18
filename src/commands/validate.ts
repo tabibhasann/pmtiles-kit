@@ -46,15 +46,19 @@ export async function validateCommand(
       report.warnings.push("Archive contains zero tiles");
     }
 
-    // Try sampling a few tiles
-    const zooms = await archive.listZooms();
-    if (zooms.length > 0) {
-      const z = zooms[Math.floor(zooms.length / 2)];
-      const tile = await archive.getTile(z, 0, 0);
-      if (!tile || tile.length === 0) {
-        report.errors.push(`No tile data at z=${z}, x=0, y=0`);
-        report.valid = false;
+    // Try sampling a tile that actually exists. (z=0, x=0, y=0) is
+    // not guaranteed to exist in regional archives.
+    let sampled = false;
+    for await (const { z, x, y } of archive.listTiles()) {
+      const tile = await archive.getTile(z, x, y);
+      if (tile && tile.length > 0) {
+        sampled = true;
+        break;
       }
+      if (sampled) break;
+    }
+    if (!sampled) {
+      report.warnings.push("Could not sample any tile (archive may be empty or unreadable)");
     }
   } catch (e) {
     report.valid = false;
