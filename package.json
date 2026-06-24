@@ -37,6 +37,19 @@
   "engines": {
     "node": ">=18"
   },
+  "keywords": [
+    "pmtiles",
+    "mbtiles",
+    "maps",
+    "tiles",
+    "gis",
+    "geospatial",
+    "cli",
+    "inspect",
+    "validate",
+    "convert",
+    "preview"
+  ],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

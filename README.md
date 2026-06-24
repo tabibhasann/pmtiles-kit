@@ -2,11 +2,11 @@
 
 **The missing Swiss-army knife for PMTiles and MBTiles.** Inspect, validate, convert, and preview map tile archives with a single command. Production-ready with efficient conversion, progress indicators, and CI/CD integration.
 
-[![npm version](https://img.shields.io/npm/v/pmtiles-kit.svg)](https://npmjs.com/package/pmtiles-kit)
+[![npm version](https://img.shields.io/npm/v/pmtiles-kit)](https://npmjs.com/package/pmtiles-kit)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/ci.yml)
-[![Downloads](https://img.shields.io/npm/dm/pmtiles-kit.svg)](https://npmjs.com/package/pmtiles-kit)
+[![Downloads](https://img.shields.io/npm/dm/pmtiles-kit)](https://npmjs.com/package/pmtiles-kit)
 
 ## Why pmtiles-kit?
 
