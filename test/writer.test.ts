@@ -117,6 +117,23 @@ describe("PMTiles v3 writer", () => {
     expect(decoded[2]!.tileId).toBe(5);
   });
 
+  it("counts addressed tiles as the sum of directory run lengths", () => {
+    const entries = [
+      { tileId: 0, offset: 0, length: 4, runLength: 3 },
+      { tileId: 5, offset: 4, length: 4, runLength: 1 },
+    ];
+    const out = buildPMTiles(entries, new Uint8Array(8).fill(0x42), {
+      minZoom: 0, maxZoom: 1,
+      minLon: 0, minLat: 0, maxLon: 0, maxLat: 0,
+      tileType: "mvt", tileCompression: "none",
+      metadata: {},
+    });
+    const h = readPMTilesHeader(out.bytes);
+    expect(out.header.tileCount).toBe(4);
+    expect(h.addressedTiles).toBe(4);
+    expect(h.tileEntries).toBe(2);
+  });
+
   it("rejects entries that are not sorted by tileId", () => {
     expect(() =>
       buildPMTiles(

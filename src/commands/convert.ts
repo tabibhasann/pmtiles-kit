@@ -179,7 +179,12 @@ async function convertToPMTiles(
       deduplicated += 1;
     }
     const tileId = zxyToTileId(z, x, y);
-    if (currentRun && currentRun.offset === blobOffset && currentRun.length === bytes.length) {
+    if (
+      currentRun &&
+      currentRun.offset === blobOffset &&
+      currentRun.length === bytes.length &&
+      currentRun.tileId + currentRun.runLength === tileId
+    ) {
       currentRun.runLength += 1;
     } else {
       currentRun = {
@@ -195,7 +200,7 @@ async function convertToPMTiles(
 
   if (deduplicated > 0) {
     report.warnings.push(
-      `${deduplicated} duplicate tile(s) collapsed via run-length encoding`
+      `${deduplicated} duplicate tile content(s) reused in the PMTiles data section`
     );
   }
 

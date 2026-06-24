@@ -222,7 +222,9 @@ export function buildPMTiles(
   hv.setBigUint64(56, tileDataOffset, true);
   hv.setBigUint64(64, tileDataLength, true);
   // Number of addressed tiles, tile entries, tile contents
-  const addressed = BigInt(entries.length);
+  const addressed = BigInt(
+    entries.reduce((sum, e) => sum + Math.max(0, e.runLength), 0)
+  );
   const entryCount = BigInt(entries.filter((e) => e.runLength > 0).length);
   // Unique tile contents = number of distinct (offset, length) blobs
   const blobKeys = new Set<string>();
@@ -268,7 +270,7 @@ export function buildPMTiles(
 
   return {
     bytes: out,
-    tileCount: entries.length,
+    tileCount: Number(addressed),
     header: {
       format: "pmtiles",
       tileType: options.tileType,

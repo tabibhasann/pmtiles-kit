@@ -1,6 +1,5 @@
 import http from "http";
 import { openArchive } from "../archive/open";
-import { TileArchiveHeader } from "../archive/types";
 
 const VIEWER_HTML = `<!DOCTYPE html>
 <html lang="en">

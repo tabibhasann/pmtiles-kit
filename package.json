@@ -4,6 +4,14 @@
   "description": "The missing Swiss-army knife for PMTiles and MBTiles — inspect, validate, convert, and preview map tile archives",
   "license": "MIT",
   "author": "Tabib Hasan",
+  "homepage": "https://github.com/tabibhasann/pmtiles-kit#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/tabibhasann/pmtiles-kit.git"
+  },
+  "bugs": {
+    "url": "https://github.com/tabibhasann/pmtiles-kit/issues"
+  },
   "type": "module",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -18,9 +26,17 @@
   },
   "files": [
     "dist",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "CODE_OF_CONDUCT.md",
+    "SECURITY.md",
+    "ROADMAP.md",
     "README.md",
     "LICENSE"
   ],
+  "engines": {
+    "node": ">=18"
+  },
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",

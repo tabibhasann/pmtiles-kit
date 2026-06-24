@@ -5,6 +5,10 @@ import { tmpdir } from "os";
 import { join } from "path";
 import { convertCommand } from "../src/commands/convert";
 
+interface CountRow {
+  count: number;
+}
+
 let srcPath: string;
 let dstPath: string;
 
@@ -64,11 +68,11 @@ describe("Convert Command", () => {
     
     // Verify the converted file
     const db = new Database(dstPath);
-    const tileCount = db.prepare("SELECT COUNT(*) as count FROM tiles").get() as any;
+    const tileCount = db.prepare("SELECT COUNT(*) as count FROM tiles").get() as CountRow;
     expect(tileCount.count).toBeGreaterThan(0);
     
     // Verify metadata was copied
-    const metadata = db.prepare("SELECT * FROM metadata").all() as any[];
+    const metadata = db.prepare("SELECT * FROM metadata").all() as unknown[];
     expect(metadata.length).toBeGreaterThan(0);
     
     db.close();

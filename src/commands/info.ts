@@ -1,5 +1,4 @@
 import { openArchive } from "../archive/open";
-import { formatBytes } from "../util/bytes";
 
 export async function infoCommand(
   file: string,

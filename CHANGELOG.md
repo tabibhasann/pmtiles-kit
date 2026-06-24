@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - New tests: `test/writer.test.ts` (6 tests) + `test/roundtrip.test.ts` (2 tests)
 
 ### Fixed
+- Consolidated npm publishing into a single tag-triggered workflow so releases cannot publish twice.
 - **`convert` actually writes a real PMTiles archive** (was silently writing MBTiles with a
   `.pmtiles` extension and a warning, breaking the spec acceptance criteria)
 - `convert` normalizes metadata keys and bounds between PMTiles and MBTiles
@@ -43,4 +44,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - CLI: `info`, `validate`, `convert`, `serve`, `tile`
 - MapLibre preview page served at `/`
 - GitHub Actions CI/CD
-
