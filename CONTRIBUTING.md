@@ -43,13 +43,57 @@ Before creating bug reports, please check the issue list as you might find out t
 1. Fork the repository on GitHub
 2. Clone your fork locally:
    ```bash
-   git clone git@github.com:tabibhasann/pmtiles-kit.git
+   git clone https://github.com/tabibhasann/pmtiles-kit.git
    cd pmtiles-kit
    ```
 3. Install dependencies:
    ```bash
    npm install
    ```
+
+### Essential Commands
+
+| Command | Description |
+|---------|-------------|
+| `npm test` | Run all tests |
+| `npm run test:coverage` | Run tests with coverage report |
+| `npm run lint` | Lint source and test files |
+| `npm run typecheck` | TypeScript type checking |
+| `npm run build` | Build with tsup |
+| `npm run format` | Format code with Prettier |
+| `npm pack --dry-run` | Verify package contents |
+
+### Project Structure
+
+```
+src/
+  archive/          Core archive reading/writing
+    writer/         PMTiles v3 writer modules (constants, encoding, directory, types)
+    types.ts        Shared type definitions
+    open.ts         Archive opener (format detection)
+    pmtiles.ts      PMTiles reader
+    mbtiles.ts      MBTiles reader (SQLite)
+  commands/         CLI command implementations
+  util/             Shared utilities
+test/               Vitest test files
+```
+
+### Commit Conventions
+
+We use [Conventional Commits](https://www.conventionalcommits.org/):
+- `feat:` new features
+- `fix:` bug fixes
+- `docs:` documentation changes
+- `refactor:` code refactoring
+- `test:` test additions/changes
+- `chore:` maintenance tasks
+
+### AI-Assisted Maintenance
+
+This project uses a Codex PR-review GitHub Action (`.github/workflows/codex-review.yml`) to automatically review pull requests. Maintainers can leverage AI tools for:
+- Automated PR review and code quality checks
+- Issue triage and labeling
+- Release notes generation
 
 ### Running Tests
 

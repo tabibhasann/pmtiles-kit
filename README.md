@@ -6,12 +6,29 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/ci.yml)
-[![Coverage](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/coverage.yml/badge.svg)](https://github.com/tabibhasann/pmtiles-kit/actions)
-[![Tests](https://img.shields.io/badge/tests-108%20passed-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
+[![Coverage](https://img.shields.io/badge/coverage-72%25-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
+[![Tests](https://img.shields.io/badge/tests-120%20passed-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
 [![Downloads](https://img.shields.io/npm/dm/@tabibhasan/pmtiles-kit)](https://npmjs.com/package/@tabibhasan/pmtiles-kit)
 
 
 **Demo:** Example output: see [Quickstart](#quickstart) above
+
+### Screenshot
+
+```text
+$ pmtiles-kit info sample.pmtiles
+
+Format:     PMTILES
+Tile type:  mvt
+Compression: gzip
+Zoom range: 0 – 2
+Bounds:     [-85.051129, -180, 85.051129, 180]
+Center:     0, 0, 1
+Tile count: 5
+
+$ pmtiles-kit validate sample.pmtiles
+✓ Valid
+```
 
 ## Why pmtiles-kit?
 
@@ -22,8 +39,10 @@ Map tile archives (PMTiles, MBTiles) are the backbone of modern web mapping, but
 | Tool | Language | Inspect | Validate | Convert | Preview | Library API |
 |---|---|---|---|---|---|---|
 | **pmtiles-kit** | TypeScript | ✅ | ✅ | ✅ | ✅ | ✅ |
-| go-pmtiles | Go | ✅ | ✅ | ❌ | ❌ | ❌ |
-| pmtiles (npm) | TypeScript | ❌ | ❌ | ❌ | ❌ | ✅ (render only) |
+| [go-pmtiles](https://github.com/protomaps/go-pmtiles) | Go | ✅ | ✅ | ❌ | ❌ | ❌ |
+| [pmtiles (npm)](https://www.npmjs.com/package/pmtiles) | TypeScript | ❌ | ❌ | ❌ | ❌ | ✅ (render only) |
+| [tippecanoe](https://github.com/felt/tippecanoe) | C++ | ❌ | ❌ | ✅ (GeoJSON→PMTiles) | ❌ | ❌ |
+| [mb-util](https://github.com/mapbox/mbutil) | Python | ❌ | ❌ | ✅ (MBTiles↔tile dir) | ❌ | ❌ |
 
 pmtiles-kit is the only npm-native tool that combines inspect, validate, convert,
 and preview in a single CLI + library.
