@@ -6,8 +6,8 @@
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-72%25-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
-[![Tests](https://img.shields.io/badge/tests-120%20passed-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
+[![Coverage](https://img.shields.io/badge/coverage-71%25-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
+[![Tests](https://img.shields.io/badge/tests-170%20passed-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
 [![Downloads](https://img.shields.io/npm/dm/@tabibhasan/pmtiles-kit)](https://npmjs.com/package/@tabibhasan/pmtiles-kit)
 
 
