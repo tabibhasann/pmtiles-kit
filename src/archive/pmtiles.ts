@@ -16,12 +16,17 @@ export class PMTilesArchive implements Archive {
   private _header: TileArchiveHeader | null = null;
   private path: string;
 
-  constructor(path: string) {
+  constructor(path: string, source?: unknown) {
     this.path = path;
+    if (source) {
+      this.pmtiles = new PMTiles(source as ConstructorParameters<typeof PMTiles>[0]);
+    }
   }
 
   async init(): Promise<void> {
-    this.pmtiles = new PMTiles(new NodeFileSource(this.path) as unknown as ConstructorParameters<typeof PMTiles>[0]);
+    if (!this.pmtiles) {
+      this.pmtiles = new PMTiles(new NodeFileSource(this.path) as unknown as ConstructorParameters<typeof PMTiles>[0]);
+    }
     const h = await this.pmtiles.getHeader();
     const metadata = (await this.pmtiles.getMetadata()) as Record<string, unknown>;
 

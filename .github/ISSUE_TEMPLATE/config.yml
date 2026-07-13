@@ -1,0 +1,8 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Discussions
+    url: https://github.com/tabibhasann/pmtiles-kit/discussions
+    about: Ask questions and share ideas in Discussions
+  - name: Security Reports
+    url: https://github.com/tabibhasann/pmtiles-kit/security/advisories/new
+    about: Report security vulnerabilities privately

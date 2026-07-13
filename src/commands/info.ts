@@ -2,14 +2,27 @@ import { openArchive } from "../archive/open";
 
 export async function infoCommand(
   file: string,
-  json: boolean
+  json: boolean,
+  verbose: boolean = false
 ): Promise<string> {
   const archive = await openArchive(file);
   try {
     const header = await archive.getHeader();
-    if (json) {
-      return JSON.stringify(header, null, 2);
+
+    let perZoom: Record<number, number> | undefined;
+    if (verbose) {
+      perZoom = {};
+      for await (const { z } of archive.listTiles()) {
+        perZoom[z] = (perZoom[z] ?? 0) + 1;
+      }
     }
+
+    if (json) {
+      const output: Record<string, unknown> = { ...header };
+      if (perZoom) output.perZoom = perZoom;
+      return JSON.stringify(output, null, 2);
+    }
+
     const lines = [
       `Format:     ${header.format.toUpperCase()}`,
       `Tile type:  ${header.tileType}`,
@@ -21,6 +34,12 @@ export async function infoCommand(
     ];
     if (header.vectorLayers?.length) {
       lines.push(`Vector layers: ${header.vectorLayers.join(", ")}`);
+    }
+    if (perZoom) {
+      lines.push("", "Per-zoom tile counts:");
+      for (const z of Object.keys(perZoom).map(Number).sort((a, b) => a - b)) {
+        lines.push(`  z${z}: ${perZoom[z]} tiles`);
+      }
     }
     return lines.join("\n");
   } finally {

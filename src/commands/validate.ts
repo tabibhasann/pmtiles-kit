@@ -4,7 +4,8 @@ import { prettyReport } from "../report";
 
 export async function validateCommand(
   file: string,
-  json: boolean
+  json: boolean,
+  strict: boolean = false,
 ): Promise<string> {
   const report: ValidationReport = { valid: true, errors: [], warnings: [] };
   let archive;
@@ -55,7 +56,6 @@ export async function validateCommand(
         sampled = true;
         break;
       }
-      if (sampled) break;
     }
     if (!sampled) {
       report.warnings.push("Could not sample any tile (archive may be empty or unreadable)");
@@ -65,6 +65,12 @@ export async function validateCommand(
     report.errors.push(`Validation error: ${e}`);
   } finally {
     await archive.close();
+  }
+
+  if (strict && report.warnings.length > 0) {
+    report.errors.push(...report.warnings);
+    report.warnings = [];
+    report.valid = false;
   }
 
   if (json) return JSON.stringify(report, null, 2);

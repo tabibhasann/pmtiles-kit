@@ -145,9 +145,16 @@ export async function serveCommand(
       try {
         const tile = await archive.getTile(z, x, y);
         if (tile) {
-          const contentType = header.tileType === "vector" 
-            ? "application/x-protobuf" 
-            : "image/png";
+          const contentType =
+            header.tileType === "vector" || header.tileType === "mvt"
+              ? "application/x-protobuf"
+              : header.tileType === "jpeg"
+                ? "image/jpeg"
+                : header.tileType === "webp"
+                  ? "image/webp"
+                  : header.tileType === "avif"
+                    ? "image/avif"
+                    : "image/png";
           res.writeHead(200, {
             "Content-Type": contentType,
             "Content-Encoding": header.compression === "gzip" ? "gzip" : "identity",
@@ -176,9 +183,9 @@ export async function serveCommand(
   });
 
   // Handle graceful shutdown
-  process.on("SIGINT", () => {
+  process.on("SIGINT", async () => {
     server.close();
-    archive.close();
+    await archive.close();
     process.exit(0);
   });
 }

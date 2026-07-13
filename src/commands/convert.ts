@@ -1,9 +1,10 @@
 import Database from "better-sqlite3";
-import { existsSync } from "fs";
+import { existsSync, writeFileSync } from "fs";
 import { gzipSync } from "zlib";
-import { ConvertReport, TileArchiveHeader, PMTilesCompression, TileType } from "../archive/types";
+import { ConvertReport } from "../archive/types";
 import { openArchive } from "../archive/open";
 import { buildPMTiles, WriterEntry, zxyToTileId } from "../archive/writer";
+import { inferTileType, inferCompression, detectCompression, bytesKey } from "./shared";
 
 /**
  * Convert a tile archive (PMTiles or MBTiles) to a different format.
@@ -248,46 +249,6 @@ async function convertToPMTiles(
     metadata: outMeta,
   });
 
-  const { writeFileSync } = await import("fs");
   writeFileSync(dst, result.bytes);
   console.log(`Wrote ${result.bytes.length} bytes to ${dst}`);
-}
-
-function inferTileType(header: TileArchiveHeader): TileType {
-  if (header.tileType === "mvt" || header.tileType === "vector") return "mvt";
-  if (header.tileType === "png") return "png";
-  if (header.tileType === "jpeg") return "jpeg";
-  if (header.tileType === "webp") return "webp";
-  if (header.tileType === "avif") return "avif";
-  return "unknown";
-}
-
-function inferCompression(header: TileArchiveHeader): PMTilesCompression {
-  const c = (header.compression || "").toString().toLowerCase();
-  if (c === "gzip") return "gzip";
-  if (c === "brotli") return "brotli";
-  if (c === "zstd") return "zstd";
-  if (c === "none" || c === "identity") return "none";
-  // Default for MBTiles is gzip
-  if (header.format === "mbtiles") return "gzip";
-  return "unknown";
-}
-
-/** Auto-detect compression from raw tile bytes by looking at the magic. */
-function detectCompression(bytes: Uint8Array): PMTilesCompression {
-  if (bytes.length >= 2 && bytes[0] === 0x1f && bytes[1] === 0x8b) return "gzip";
-  if (bytes.length >= 4 && bytes[0] === 0x28 && bytes[1] === 0xb5) return "zstd";
-  return "none";
-}
-
-function bytesKey(b: Uint8Array): string {
-  // Use a full FNV-1a hash so that any two distinct byte sequences produce
-  // distinct keys (with probability 1/2^32 for collision). This is more
-  // reliable than a head+tail sample for short test tiles.
-  let hash = 0x811c9dc5;
-  for (let i = 0; i < b.length; i++) {
-    hash ^= b[i]!;
-    hash = Math.imul(hash, 0x01000193);
-  }
-  return `${b.length}:${(hash >>> 0).toString(16)}`;
 }

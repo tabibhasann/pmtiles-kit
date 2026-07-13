@@ -7,8 +7,9 @@
 
 import { writeFileSync } from "fs";
 import { buildPMTiles, zxyToTileId, WriterEntry } from "../archive/writer";
-import { TileArchiveHeader, TileType, PMTilesCompression } from "../archive/types";
+import { TileType, PMTilesCompression } from "../archive/types";
 import { openArchive } from "../archive/open";
+import { inferTileType, inferCompression, bytesKey } from "./shared";
 
 export interface ExtractOptions {
   minZoom?: number;
@@ -19,10 +20,13 @@ export interface ExtractOptions {
 function tileInBbox(z: number, x: number, y: number, bbox: [number, number, number, number]): boolean {
   const n = 1 << z;
   const [minLat, minLon, maxLat, maxLon] = bbox;
-  const lon = (x / n) * 360 - 180;
-  const latRad = Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n)));
-  const lat = (latRad * 180) / Math.PI;
-  return lon >= minLon && lon <= maxLon && lat >= minLat && lat <= maxLat;
+  // Tile boundaries in lon/lat
+  const tileMinLon = (x / n) * 360 - 180;
+  const tileMaxLon = ((x + 1) / n) * 360 - 180;
+  const tileMaxLat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * y) / n))) * 180) / Math.PI;
+  const tileMinLat = (Math.atan(Math.sinh(Math.PI * (1 - (2 * (y + 1)) / n))) * 180) / Math.PI;
+  // Overlap test (not containment — tiles that straddle the bbox edge are included)
+  return tileMaxLon >= minLon && tileMinLon <= maxLon && tileMaxLat >= minLat && tileMinLat <= maxLat;
 }
 
 export async function extractCommand(
@@ -37,6 +41,7 @@ export async function extractCommand(
 
   // Collect tiles in the subset
   const collected: { z: number; x: number; y: number; bytes: Uint8Array }[] = [];
+  const metadata = await srcArchive.getMetadata();
   for await (const { z, x, y } of srcArchive.listTiles()) {
     if (z < minZ || z > maxZ) continue;
     if (opts.bbox && !tileInBbox(z, x, y, opts.bbox)) continue;
@@ -54,7 +59,7 @@ export async function extractCommand(
   const seen = new Map<string, number>();
   let offset = 0;
   for (const { z, x, y, bytes } of collected) {
-    const key = `${bytes.length}:${bytes[0] ?? 0}:${bytes[bytes.length - 1] ?? 0}`;
+    const key = bytesKey(bytes);
     let blobOffset = seen.get(key);
     if (blobOffset === undefined) {
       blobOffset = offset;
@@ -64,7 +69,12 @@ export async function extractCommand(
     }
     const id = zxyToTileId(z, x, y);
     const last = entries[entries.length - 1];
-    if (last && last.offset === blobOffset && last.length === bytes.length) {
+    if (
+      last &&
+      last.offset === blobOffset &&
+      last.length === bytes.length &&
+      last.tileId + last.runLength === id
+    ) {
       last.runLength += 1;
     } else {
       entries.push({ tileId: id, offset: blobOffset, length: bytes.length, runLength: 1 });
@@ -93,27 +103,8 @@ export async function extractCommand(
     centerLat: header.center ? header.center[1] : (minLat + maxLat) / 2,
     tileType,
     tileCompression: compression,
-    metadata: await srcArchive.getMetadata(),
+    metadata,
   });
   writeFileSync(dst, result.bytes);
   return `Extracted ${entries.length} entries (${result.bytes.length} bytes) → ${dst}`;
-}
-
-function inferTileType(header: TileArchiveHeader): TileType {
-  if (header.tileType === "mvt" || header.tileType === "vector") return "mvt";
-  if (header.tileType === "png") return "png";
-  if (header.tileType === "jpeg") return "jpeg";
-  if (header.tileType === "webp") return "webp";
-  if (header.tileType === "avif") return "avif";
-  return "unknown";
-}
-
-function inferCompression(header: TileArchiveHeader): PMTilesCompression {
-  const c = (header.compression || "").toString().toLowerCase();
-  if (c === "gzip") return "gzip";
-  if (c === "brotli") return "brotli";
-  if (c === "zstd") return "zstd";
-  if (c === "none" || c === "identity") return "none";
-  if (header.format === "mbtiles") return "gzip";
-  return "unknown";
 }

@@ -119,12 +119,6 @@ function positionToBytes(lon: number, lat: number): Uint8Array {
   return new Uint8Array(buf);
 }
 
-function positionFromBytes(view: DataView, offset: number): [number, number] {
-  const lon = view.getInt32(offset, true) / 1e7;
-  const lat = view.getInt32(offset + 4, true) / 1e7;
-  return [lon, lat];
-}
-
 function readVarint(view: DataView, state: { pos: number }): number {
   let result = 0;
   let shift = 0;
@@ -412,9 +406,6 @@ export function decodeDirectory(bytes: Uint8Array, internalCompression: PMTilesC
   }
   return entries;
 }
-
-/** Position helpers exposed for test/utility use. */
-export { positionFromBytes };
 
 /** Save a complete PMTiles archive to disk. */
 export function writePMTilesFile(

@@ -140,4 +140,20 @@ describe("Validate Command", () => {
     
     unlinkSync(badBoundsPath);
   });
+
+  it("should treat warnings as errors in strict mode", async () => {
+    const result = await validateCommand(emptyPath, false, true);
+    
+    expect(result).toContain("Invalid");
+    expect(result).toContain("zero tiles");
+  });
+
+  it("should output JSON in strict mode with warnings as errors", async () => {
+    const result = await validateCommand(emptyPath, true, true);
+    
+    const parsed = JSON.parse(result);
+    expect(parsed.valid).toBe(false);
+    expect(parsed.errors.length).toBeGreaterThan(0);
+    expect(parsed.warnings).toEqual([]);
+  });
 });

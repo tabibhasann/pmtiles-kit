@@ -7,6 +7,8 @@ import { convertCommand } from "./commands/convert";
 import { serveCommand } from "./commands/serve";
 import { tileCommand } from "./commands/tile";
 import { extractCommand, ExtractOptions } from "./commands/extract";
+import { scanCommand } from "./commands/scan";
+import { compareCommand } from "./commands/compare";
 import { writeFileSync } from "fs";
 
 const program = new Command();
@@ -20,8 +22,9 @@ program
   .command("info <file>")
   .description("Show archive header and metadata")
   .option("--json", "Output as JSON")
-  .action(async (file: string, options: { json?: boolean }) => {
-    const output = await infoCommand(file, !!options.json);
+  .option("--verbose", "Show per-zoom tile counts")
+  .action(async (file: string, options: { json?: boolean; verbose?: boolean }) => {
+    const output = await infoCommand(file, !!options.json, !!options.verbose);
     console.log(output);
   });
 
@@ -29,10 +32,14 @@ program
   .command("validate <file>")
   .description("Validate archive structure (exit 1 if invalid)")
   .option("--json", "Output as JSON")
-  .action(async (file: string, options: { json?: boolean }) => {
-    const output = await validateCommand(file, !!options.json);
+  .option("--strict", "Strict mode: treat warnings as errors")
+  .action(async (file: string, options: { json?: boolean; strict?: boolean }) => {
+    const output = await validateCommand(file, !!options.json, !!options.strict);
     console.log(output);
     if (!options.json && output.startsWith("✗")) {
+      process.exit(1);
+    }
+    if (options.strict && output.includes("⚠")) {
       process.exit(1);
     }
   });
@@ -40,7 +47,8 @@ program
 program
   .command("convert <in> <out>")
   .description("Convert between PMTiles and MBTiles")
-  .action(async (src: string, dst: string) => {
+  .option("--verbose", "Verbose output")
+  .action(async (src: string, dst: string, _options: { verbose?: boolean }) => {
     try {
       const output = await convertCommand(src, dst);
       console.log(output);
@@ -114,6 +122,35 @@ program
       if (opts.maxzoom !== undefined) extractOpts.maxZoom = opts.maxzoom;
       const out = await extractCommand(src, dst, extractOpts);
       console.log(out);
+    } catch (e) {
+      console.error("Error:", e);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("scan <dir>")
+  .description("Scan a directory for PMTiles/MBTiles files")
+  .option("--json", "Output as JSON")
+  .option("--verbose", "Verbose output (show errors per file)")
+  .action(async (dir: string, options: { json?: boolean; verbose?: boolean }) => {
+    try {
+      const output = await scanCommand(dir, !!options.json, !!options.verbose);
+      console.log(output);
+    } catch (e) {
+      console.error("Error:", e);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("compare <a> <b>")
+  .description("Compare two tile archives")
+  .option("--json", "Output as JSON")
+  .action(async (a: string, b: string, options: { json?: boolean }) => {
+    try {
+      const output = await compareCommand(a, b, !!options.json);
+      console.log(output);
     } catch (e) {
       console.error("Error:", e);
       process.exit(1);
