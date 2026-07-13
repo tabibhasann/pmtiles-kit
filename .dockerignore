@@ -1,0 +1,12 @@
+node_modules/
+dist/
+.git/
+.github/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+coverage/
+.nyc_output/
+test/
+tests/
