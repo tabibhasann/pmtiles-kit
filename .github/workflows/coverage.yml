@@ -20,7 +20,7 @@ jobs:
       - run: npm ci --no-audit --no-fund
       - run: npx vitest run --coverage
       - name: Upload coverage
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ github.job }}
           path: coverage/
