@@ -73,15 +73,18 @@
     "pmtiles": "^3.0.0"
   },
   "devDependencies": {
+    "@eslint/js": "^8.57.1",
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
     "@vitest/coverage-v8": "^1.6.1",
     "eslint": "^8.0.0",
+    "globals": "^17.7.0",
     "prettier": "^3.0.0",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
+    "typescript-eslint": "^7.18.0",
     "vitest": "^1.0.0"
   },
   "publishConfig": {

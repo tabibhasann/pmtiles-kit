@@ -408,7 +408,7 @@ describe("Extended error path tests", () => {
     it("listTiles iterates all tiles", async () => {
       const archive = await openArchive(pmtilesPath);
       let count = 0;
-      for await (const _ of archive.listTiles()) {
+      for await (const _tile of archive.listTiles()) {
         count++;
       }
       expect(count).toBe(5);

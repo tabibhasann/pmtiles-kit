@@ -1,4 +1,4 @@
-import { buildPMTiles, zxyToTileId, writePMTilesFile } from "../src/archive/writer";
+import { zxyToTileId, writePMTilesFile } from "../src/archive/writer";
 import { gzipSync } from "zlib";
 import { join } from "path";
 import { tmpdir } from "os";
@@ -7,7 +7,7 @@ import { mkdirSync } from "fs";
 const dir = join(tmpdir(), "pmtiles-kit-screenshots");
 mkdirSync(dir, { recursive: true });
 
-function makeTileBytes(z, x, y) {
+function makeTileBytes(z: number, x: number, y: number) {
   return new Uint8Array(gzipSync(Buffer.from(`MVT-${z}-${x}-${y}`)));
 }
 

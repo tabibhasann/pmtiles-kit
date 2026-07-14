@@ -157,3 +157,7 @@ describe("my new feature", () => {
   });
 });
 ```
+
+## AI-assisted maintenance
+
+This project uses [Codex](https://openai.com/codex/) for AI-assisted PR review. The `.github/workflows/codex-review.yml` workflow triggers automated review on pull requests. Maintainers manually approve all changes — no AI-generated commits are merged without human review.

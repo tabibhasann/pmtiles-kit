@@ -8,7 +8,7 @@ import { performance } from 'perf_hooks';
 import { MBTilesArchive } from '../src/archive/mbtiles';
 import { convertCommand } from '../src/commands/convert';
 import { validateCommand } from '../src/commands/validate';
-import { statsCommand } from '../src/commands/stats';
+import { infoCommand } from '../src/commands/info';
 import * as fs from 'fs';
 import * as path from 'path';
 import Database from 'better-sqlite3';
@@ -23,7 +23,7 @@ interface BenchmarkResult {
   throughput: number;
 }
 
-function calculateStats(name: string, times: number[], unit: string = 'ops'): BenchmarkResult {
+function calculateStats(name: string, times: number[], _unit: string = 'ops'): BenchmarkResult {
   const sorted = [...times].sort((a, b) => a - b);
   const sum = times.reduce((a, b) => a + b, 0);
   const mean = sum / times.length;
@@ -159,9 +159,8 @@ async function benchmarkTileListing() {
       const times: number[] = [];
       for (let i = 0; i < 10; i++) {
         const start = performance.now();
-        let count = 0;
-        for await (const tile of archive.listTiles()) {
-          count++;
+        for await (const _tile of archive.listTiles()) {
+          // iterate to measure time
         }
         const end = performance.now();
         times.push(end - start);
@@ -256,7 +255,7 @@ async function benchmarkStats() {
       const times: number[] = [];
       for (let i = 0; i < 5; i++) {
         const start = performance.now();
-        await statsCommand(testFile);
+        await infoCommand(testFile, false);
         const end = performance.now();
         times.push(end - start);
       }
