@@ -3,8 +3,8 @@ import { existsSync, writeFileSync } from "fs";
 import { gzipSync } from "zlib";
 import { ConvertReport } from "../archive/types";
 import { openArchive } from "../archive/open";
-import { buildPMTiles, WriterEntry, zxyToTileId } from "../archive/writer";
-import { inferTileType, inferCompression, detectCompression, bytesKey } from "./shared";
+import { buildPMTiles } from "../archive/writer";
+import { inferTileType, inferCompression, detectCompression, buildEntriesAndTileData } from "./shared";
 
 /**
  * Convert a tile archive (PMTiles or MBTiles) to a different format.
@@ -146,14 +146,7 @@ async function convertToPMTiles(
 ): Promise<void> {
   const srcHeader = await srcArchive.getHeader();
 
-  // Collect every tile and accumulate tile data (offset/length into the blob)
-  const entries: WriterEntry[] = [];
-  const blobs: Uint8Array[] = [];
-  let runningOffset = 0;
-  let deduplicated = 0;
-  const seen = new Map<string, number>(); // sha-ish: bytes hash -> offset
-
-  // Tiles must be sorted by tileId (Hilbert). Pull them all then sort.
+  // Collect every tile from the source archive.
   console.log(`Collecting tiles from ${srcHeader.format}...`);
   const collected: { z: number; x: number; y: number; bytes: Uint8Array }[] = [];
   for await (const { z, x, y } of srcArchive.listTiles()) {
@@ -162,42 +155,10 @@ async function convertToPMTiles(
       collected.push({ z, x, y, bytes: tile });
     }
   }
+  report.tileCount = collected.length;
 
-  // Sort by Hilbert TileID
-  collected.sort((a, b) => zxyToTileId(a.z, a.x, a.y) - zxyToTileId(b.z, b.x, b.y));
-
-  // Deduplicate by exact bytes; consecutive identical runs collapse via runLength.
-  let currentRun: WriterEntry | null = null;
-  for (const { z, x, y, bytes } of collected) {
-    const key = bytesKey(bytes);
-    let blobOffset = seen.get(key);
-    if (blobOffset === undefined) {
-      blobOffset = runningOffset;
-      seen.set(key, blobOffset);
-      blobs.push(bytes);
-      runningOffset += bytes.length;
-    } else {
-      deduplicated += 1;
-    }
-    const tileId = zxyToTileId(z, x, y);
-    if (
-      currentRun &&
-      currentRun.offset === blobOffset &&
-      currentRun.length === bytes.length &&
-      currentRun.tileId + currentRun.runLength === tileId
-    ) {
-      currentRun.runLength += 1;
-    } else {
-      currentRun = {
-        tileId,
-        offset: blobOffset,
-        length: bytes.length,
-        runLength: 1,
-      };
-      entries.push(currentRun);
-    }
-    report.tileCount++;
-  }
+  // Sort by Hilbert TileID, deduplicate, and build the tile data section
+  const { entries, tileData, deduplicated } = buildEntriesAndTileData(collected);
 
   if (deduplicated > 0) {
     report.warnings.push(
@@ -205,22 +166,13 @@ async function convertToPMTiles(
     );
   }
 
-  // Concatenate the tile data section
-  const totalTileBytes = runningOffset;
-  const tileData = new Uint8Array(totalTileBytes);
-  let pos = 0;
-  for (const b of blobs) {
-    tileData.set(b, pos);
-    pos += b.length;
-  }
-
   // Determine tile type & compression. Prefer the actual bytes if the
   // source declared a compression that doesn't match the data (this is
   // common with synthetic test fixtures and some hand-made MBTiles).
   const tileType = inferTileType(srcHeader);
   let tileCompression = inferCompression(srcHeader);
-  if (blobs.length > 0) {
-    const actual = detectCompression(blobs[0]!);
+  if (collected.length > 0) {
+    const actual = detectCompression(collected[0]!.bytes);
     if (actual !== "unknown") {
       tileCompression = actual;
     }
@@ -233,7 +185,7 @@ async function convertToPMTiles(
   // Bounds are [south, west, north, east] internally; convert to lon/lat
   const [minLat, minLon, maxLat, maxLon] = srcHeader.bounds;
 
-  console.log(`Writing PMTiles v3 archive (${entries.length} entries, ${totalTileBytes} bytes of tile data)...`);
+  console.log(`Writing PMTiles v3 archive (${entries.length} entries, ${tileData.length} bytes of tile data)...`);
   const result = buildPMTiles(entries, tileData, {
     minZoom: srcHeader.minZoom,
     maxZoom: srcHeader.maxZoom,

@@ -6,10 +6,10 @@
  */
 
 import { writeFileSync } from "fs";
-import { buildPMTiles, zxyToTileId, WriterEntry } from "../archive/writer";
+import { buildPMTiles } from "../archive/writer";
 import { TileType, PMTilesCompression } from "../archive/types";
 import { openArchive } from "../archive/open";
-import { inferTileType, inferCompression, bytesKey } from "./shared";
+import { inferTileType, inferCompression, buildEntriesAndTileData } from "./shared";
 
 export interface ExtractOptions {
   minZoom?: number;
@@ -53,40 +53,8 @@ export async function extractCommand(
   }
   await srcArchive.close();
 
-  // Sort by TileID + build entries (with simple dedup by tile bytes)
-  collected.sort((a, b) => zxyToTileId(a.z, a.x, a.y) - zxyToTileId(b.z, b.x, b.y));
-  const entries: WriterEntry[] = [];
-  const blobs: Uint8Array[] = [];
-  const seen = new Map<string, number>();
-  let offset = 0;
-  for (const { z, x, y, bytes } of collected) {
-    const key = bytesKey(bytes);
-    let blobOffset = seen.get(key);
-    if (blobOffset === undefined) {
-      blobOffset = offset;
-      seen.set(key, blobOffset);
-      blobs.push(bytes);
-      offset += bytes.length;
-    }
-    const id = zxyToTileId(z, x, y);
-    const last = entries[entries.length - 1];
-    if (
-      last &&
-      last.offset === blobOffset &&
-      last.length === bytes.length &&
-      last.tileId + last.runLength === id
-    ) {
-      last.runLength += 1;
-    } else {
-      entries.push({ tileId: id, offset: blobOffset, length: bytes.length, runLength: 1 });
-    }
-  }
-  const tileData = new Uint8Array(offset);
-  let p = 0;
-  for (const b of blobs) {
-    tileData.set(b, p);
-    p += b.length;
-  }
+  // Sort by TileID, deduplicate, and build the tile data section
+  const { entries, tileData } = buildEntriesAndTileData(collected);
 
   const [minLat, minLon, maxLat, maxLon] = header.bounds;
   const tileType: TileType = inferTileType(header);

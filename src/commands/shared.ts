@@ -1,4 +1,5 @@
 import { TileArchiveHeader, TileType, PMTilesCompression } from "../archive/types";
+import { zxyToTileId, WriterEntry } from "../archive/writer";
 
 /** Infer the tile type (mvt, png, jpeg, etc.) from an archive header. */
 export function inferTileType(header: TileArchiveHeader): TileType {
@@ -36,4 +37,66 @@ export function bytesKey(b: Uint8Array): string {
     hash = Math.imul(hash, 0x01000193);
   }
   return `${b.length}:${(hash >>> 0).toString(16)}`;
+}
+
+export interface CollectedTile {
+  z: number;
+  x: number;
+  y: number;
+  bytes: Uint8Array;
+}
+
+export interface BuiltEntries {
+  entries: WriterEntry[];
+  tileData: Uint8Array;
+  deduplicated: number;
+}
+
+/**
+ * Sort collected tiles by Hilbert tileId, deduplicate by exact bytes,
+ * build run-length-encoded entries, and concatenate the tile data section.
+ * Shared by the `convert` and `extract` commands.
+ */
+export function buildEntriesAndTileData(collected: CollectedTile[]): BuiltEntries {
+  collected.sort((a, b) => zxyToTileId(a.z, a.x, a.y) - zxyToTileId(b.z, b.x, b.y));
+
+  const entries: WriterEntry[] = [];
+  const blobs: Uint8Array[] = [];
+  const seen = new Map<string, number>();
+  let offset = 0;
+  let deduplicated = 0;
+
+  for (const { z, x, y, bytes } of collected) {
+    const key = bytesKey(bytes);
+    let blobOffset = seen.get(key);
+    if (blobOffset === undefined) {
+      blobOffset = offset;
+      seen.set(key, blobOffset);
+      blobs.push(bytes);
+      offset += bytes.length;
+    } else {
+      deduplicated += 1;
+    }
+    const id = zxyToTileId(z, x, y);
+    const last = entries[entries.length - 1];
+    if (
+      last &&
+      last.offset === blobOffset &&
+      last.length === bytes.length &&
+      last.tileId + last.runLength === id
+    ) {
+      last.runLength += 1;
+    } else {
+      entries.push({ tileId: id, offset: blobOffset, length: bytes.length, runLength: 1 });
+    }
+  }
+
+  const tileData = new Uint8Array(offset);
+  let p = 0;
+  for (const b of blobs) {
+    tileData.set(b, p);
+    p += b.length;
+  }
+
+  return { entries, tileData, deduplicated };
 }
