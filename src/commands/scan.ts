@@ -37,6 +37,7 @@ function findArchives(dir: string, results: string[] = []): string[] {
   return results;
 }
 
+/** Scan a directory for tile archives and report their metadata. */
 export async function scanCommand(
   dir: string,
   json: boolean = false,

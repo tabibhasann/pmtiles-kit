@@ -51,6 +51,7 @@ map.on("load", () => {
 </body>
 </html>`;
 
+/** Start a local HTTP server serving tiles from a PMTiles or MBTiles archive. */
 export async function serveCommand(
   file: string,
   port: number = 8080

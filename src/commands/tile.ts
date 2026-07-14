@@ -1,5 +1,6 @@
 import { openArchive } from "../archive/open";
 
+/** Extract a single tile from an archive and write it to stdout or a file. */
 export async function tileCommand(
   file: string,
   z: number,

@@ -1,5 +1,6 @@
 import { TileArchiveHeader, TileType, PMTilesCompression } from "../archive/types";
 
+/** Infer the tile type (mvt, png, jpeg, etc.) from an archive header. */
 export function inferTileType(header: TileArchiveHeader): TileType {
   if (header.tileType === "mvt" || header.tileType === "vector") return "mvt";
   if (header.tileType === "png") return "png";
@@ -9,6 +10,7 @@ export function inferTileType(header: TileArchiveHeader): TileType {
   return "unknown";
 }
 
+/** Infer the compression format from an archive header. */
 export function inferCompression(header: TileArchiveHeader): PMTilesCompression {
   const c = (header.compression || "").toString().toLowerCase();
   if (c === "gzip") return "gzip";

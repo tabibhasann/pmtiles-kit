@@ -2,6 +2,7 @@ import { openArchive } from "../archive/open";
 import { ValidationReport } from "../archive/types";
 import { prettyReport } from "../report";
 
+/** Validate an archive's structural integrity and tile data, returning a report. */
 export async function validateCommand(
   file: string,
   json: boolean,

@@ -1,5 +1,6 @@
 import { openArchive } from "../archive/open";
 
+/** Print archive metadata (header, bounds, tile count) as text or JSON. */
 export async function infoCommand(
   file: string,
   json: boolean,

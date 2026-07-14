@@ -29,6 +29,7 @@ function tileInBbox(z: number, x: number, y: number, bbox: [number, number, numb
   return tileMaxLon >= minLon && tileMinLon <= maxLon && tileMaxLat >= minLat && tileMinLat <= maxLat;
 }
 
+/** Extract tiles from an archive to a directory on disk. */
 export async function extractCommand(
   src: string,
   dst: string,

@@ -86,6 +86,7 @@ async function compareArchives(
   };
 }
 
+/** Compare two archives tile-by-tile and report differences. */
 export async function compareCommand(
   pathA: string,
   pathB: string,
