@@ -81,7 +81,7 @@
     "@vitest/coverage-v8": "^1.6.1",
     "eslint": "^8.0.0",
     "globals": "^17.7.0",
-    "prettier": "^3.0.0",
+    "prettier": "^3.9.5",
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^7.18.0",
