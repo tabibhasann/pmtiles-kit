@@ -85,7 +85,7 @@
     "tsup": "^8.0.0",
     "typescript": "^5.0.0",
     "typescript-eslint": "^7.18.0",
-    "vitest": "^3.2.6"
+    "vitest": "^4.1.10"
   },
   "overrides": {
     "esbuild": "0.28.1"
