@@ -14,13 +14,15 @@
 import { promises as fs } from "fs";
 
 export class NodeFileSource {
-  private buffer: ArrayBuffer | null = null;
   private key: string;
+  private buffer?: ArrayBuffer;
 
+  /** @param path - Path to the local .pmtiles file */
   constructor(private path: string) {
     this.key = `node:${path}`;
   }
 
+  /** @returns A unique cache key for this source */
   async getKey(): Promise<string> {
     return this.key;
   }
@@ -34,6 +36,11 @@ export class NodeFileSource {
     return ab;
   }
 
+  /**
+   * @param offset - Byte offset to start reading from
+   * @param length - Number of bytes to read
+   * @returns An object containing the requested byte range as an ArrayBuffer
+   */
   async getBytes(offset: number, length: number): Promise<{ data: ArrayBuffer }> {
     const buf = await this.ensureLoaded();
     // The pmtiles library reads a fixed 16 KB window for the header+root dir

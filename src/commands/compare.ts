@@ -86,7 +86,14 @@ async function compareArchives(
   };
 }
 
-/** Compare two archives tile-by-tile and report differences. */
+/** Compare two archives tile-by-tile and report differences.
+ *
+ * @param pathA - Path to the first archive
+ * @param pathB - Path to the second archive
+ * @param json - If true, output as JSON; otherwise human-readable text
+ * @returns A formatted comparison report string
+ * @throws {Error} If either archive cannot be opened
+ */
 export async function compareCommand(
   pathA: string,
   pathB: string,

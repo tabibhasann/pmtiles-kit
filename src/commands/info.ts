@@ -1,6 +1,13 @@
 import { openArchive } from "../archive/open";
 
-/** Print archive metadata (header, bounds, tile count) as text or JSON. */
+/** Print archive metadata (header, bounds, tile count) as text or JSON.
+ *
+ * @param file - Path to the archive
+ * @param json - If true, output as JSON; otherwise human-readable text
+ * @param verbose - If true, include per-zoom tile counts
+ * @returns A formatted info string
+ * @throws {Error} If the archive cannot be opened
+ */
 export async function infoCommand(
   file: string,
   json: boolean,

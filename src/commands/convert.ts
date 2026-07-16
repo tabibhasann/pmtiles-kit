@@ -13,6 +13,11 @@ import { inferTileType, inferCompression, detectCompression, buildEntriesAndTile
  * - .mbtiles → .mbtiles: direct SQLite copy (passthrough via the writer)
  * - .pmtiles → .mbtiles: re-wraps into a new SQLite MBTiles database
  * - .pmtiles → .pmtiles: re-wraps through the writer (useful for re-clustering)
+ *
+ * @param src - Path to the source archive
+ * @param dst - Path for the output archive
+ * @returns A summary string with conversion stats
+ * @throws {Error} If the output file already exists or conversion fails
  */
 export async function convertCommand(
   src: string,

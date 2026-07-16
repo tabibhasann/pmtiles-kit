@@ -1,6 +1,14 @@
 import { openArchive } from "../archive/open";
 
-/** Extract a single tile from an archive and write it to stdout or a file. */
+/** Extract a single tile from an archive and write it to stdout or a file.
+ *
+ * @param file - Path to the archive
+ * @param z - Zoom level
+ * @param x - Tile column (XYZ)
+ * @param y - Tile row (XYZ)
+ * @returns The tile bytes
+ * @throws {Error} If the tile doesn't exist or the archive can't be opened
+ */
 export async function tileCommand(
   file: string,
   z: number,

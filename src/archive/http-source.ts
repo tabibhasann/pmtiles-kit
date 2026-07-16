@@ -5,6 +5,7 @@
  * Falls back to a full download if the server doesn't support range requests.
  */
 export class HttpRangeSource {
+  private key: string;
   private cache: Map<string, ArrayBuffer> = new Map();
   private supportsRange: boolean | null = null;
 
