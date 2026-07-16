@@ -64,81 +64,84 @@ async function convertToMBTiles(
 ): Promise<void> {
   const targetDb = new Database(dst);
 
-  targetDb.exec(`
-    CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT);
-    CREATE TABLE IF NOT EXISTS tiles (
-      zoom_level INTEGER,
-      tile_column INTEGER,
-      tile_row INTEGER,
-      tile_data BLOB
-    );
-    CREATE UNIQUE INDEX IF NOT EXISTS tile_index ON tiles (zoom_level, tile_column, tile_row);
-  `);
+  try {
+    targetDb.exec(`
+      CREATE TABLE IF NOT EXISTS metadata (name TEXT, value TEXT);
+      CREATE TABLE IF NOT EXISTS tiles (
+        zoom_level INTEGER,
+        tile_column INTEGER,
+        tile_row INTEGER,
+        tile_data BLOB
+      );
+      CREATE UNIQUE INDEX IF NOT EXISTS tile_index ON tiles (zoom_level, tile_column, tile_row);
+    `);
 
-  // Copy metadata (with PMTiles -> MBTiles key normalization)
-  const metadata = await srcArchive.getMetadata();
-  const normalized: Record<string, string> = {};
-  for (const [key, value] of Object.entries(metadata)) {
-    if (key === "vector_layers" || typeof value === "object") {
-      normalized[key] = JSON.stringify(value);
-    } else {
-      normalized[key] = String(value);
-    }
-  }
-  // Ensure a "format" key exists
-  if (!normalized.format) {
-    normalized.format = "pbf";
-  }
-  // MBTiles bounds are [west, south, east, north]
-  const srcHeader = await srcArchive.getHeader();
-  if (!normalized.bounds) {
-    const [s, w, n, e] = srcHeader.bounds;
-    normalized.bounds = `${w},${s},${e},${n}`;
-  }
-
-  const insertMeta = targetDb.prepare(
-    "INSERT INTO metadata (name, value) VALUES (?, ?)"
-  );
-  for (const [key, value] of Object.entries(normalized)) {
-    insertMeta.run(key, value);
-  }
-
-  const insertTile = targetDb.prepare(
-    "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)"
-  );
-
-  const totalTiles = srcHeader.tileCount;
-  console.log(`Converting ${totalTiles} tiles to MBTiles...`);
-
-  // MBTiles convention: vector tiles are stored gzipped. The PMTiles reader
-  // transparently decompresses, so we need to re-gzip here unless the user
-  // asked for raw bytes (format != pbf).
-  const shouldGzip = (normalized.format || "").toLowerCase() === "pbf";
-
-  let lastProgress = Date.now();
-  targetDb.exec("BEGIN");
-  for await (const { z, x, y } of srcArchive.listTiles()) {
-    const tile = await srcArchive.getTile(z, x, y);
-    if (tile) {
-      const bytes = shouldGzip
-        ? Buffer.from(gzipSync(Buffer.from(tile)))
-        : Buffer.from(tile);
-      // yXyz -> yTms for storage
-      const yTms = (1 << z) - 1 - y;
-      insertTile.run(z, x, yTms, bytes);
-      report.tileCount++;
-      const now = Date.now();
-      if (now - lastProgress > 1000) {
-        const progress = totalTiles > 0 ? ((report.tileCount / totalTiles) * 100).toFixed(1) : "?";
-        console.log(`Progress: ${report.tileCount}/${totalTiles} tiles (${progress}%)`);
-        lastProgress = now;
+    // Copy metadata (with PMTiles -> MBTiles key normalization)
+    const metadata = await srcArchive.getMetadata();
+    const normalized: Record<string, string> = {};
+    for (const [key, value] of Object.entries(metadata)) {
+      if (key === "vector_layers" || typeof value === "object") {
+        normalized[key] = JSON.stringify(value);
+      } else {
+        normalized[key] = String(value);
       }
     }
-  }
-  targetDb.exec("COMMIT");
+    // Ensure a "format" key exists
+    if (!normalized.format) {
+      normalized.format = "pbf";
+    }
+    // MBTiles bounds are [west, south, east, north]
+    const srcHeader = await srcArchive.getHeader();
+    if (!normalized.bounds) {
+      const [s, w, n, e] = srcHeader.bounds;
+      normalized.bounds = `${w},${s},${e},${n}`;
+    }
 
-  console.log(`Conversion complete: ${report.tileCount} tiles written`);
-  targetDb.close();
+    const insertMeta = targetDb.prepare(
+      "INSERT INTO metadata (name, value) VALUES (?, ?)"
+    );
+    for (const [key, value] of Object.entries(normalized)) {
+      insertMeta.run(key, value);
+    }
+
+    const insertTile = targetDb.prepare(
+      "INSERT INTO tiles (zoom_level, tile_column, tile_row, tile_data) VALUES (?, ?, ?, ?)"
+    );
+
+    const totalTiles = srcHeader.tileCount;
+    console.log(`Converting ${totalTiles} tiles to MBTiles...`);
+
+    // MBTiles convention: vector tiles are stored gzipped. The PMTiles reader
+    // transparently decompresses, so we need to re-gzip here unless the user
+    // asked for raw bytes (format != pbf).
+    const shouldGzip = (normalized.format || "").toLowerCase() === "pbf";
+
+    let lastProgress = Date.now();
+    targetDb.exec("BEGIN");
+    for await (const { z, x, y } of srcArchive.listTiles()) {
+      const tile = await srcArchive.getTile(z, x, y);
+      if (tile) {
+        const bytes = shouldGzip
+          ? Buffer.from(gzipSync(Buffer.from(tile)))
+          : Buffer.from(tile);
+        // yXyz -> yTms for storage
+        const yTms = (1 << z) - 1 - y;
+        insertTile.run(z, x, yTms, bytes);
+        report.tileCount++;
+        const now = Date.now();
+        if (now - lastProgress > 1000) {
+          const progress = totalTiles > 0 ? ((report.tileCount / totalTiles) * 100).toFixed(1) : "?";
+          console.log(`Progress: ${report.tileCount}/${totalTiles} tiles (${progress}%)`);
+          lastProgress = now;
+        }
+      }
+    }
+    targetDb.exec("COMMIT");
+
+    console.log(`Conversion complete: ${report.tileCount} tiles written`);
+  } finally {
+    targetDb.close();
+  }
 }
 
 /**

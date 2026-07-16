@@ -79,9 +79,11 @@ export class PMTilesArchive implements Archive {
     };
   }
 
-  /** @returns The parsed archive header */
+  /** @returns The parsed archive header
+   * @throws {Error} If the archive has not been initialized */
   async getHeader(): Promise<TileArchiveHeader> {
-    return this._header!;
+    if (!this._header) throw new Error("Archive not initialized");
+    return this._header;
   }
 
   /**

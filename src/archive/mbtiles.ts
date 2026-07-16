@@ -112,9 +112,11 @@ export class MBTilesArchive implements Archive {
     return row?.count ?? 0;
   }
 
-  /** @returns The parsed archive header */
+  /** @returns The parsed archive header
+   * @throws {Error} If the database has not been initialized */
   async getHeader(): Promise<TileArchiveHeader> {
-    return this._header!;
+    if (!this._header) throw new Error("Database not initialized");
+    return this._header;
   }
 
   /**
