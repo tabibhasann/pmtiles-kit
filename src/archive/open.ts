@@ -4,7 +4,13 @@ import { MBTilesArchive } from "./mbtiles";
 import { open } from "fs/promises";
 import { HttpRangeSource } from "./http-source";
 
-/** Open a PMTiles or MBTiles archive from a local path or HTTP URL. */
+/**
+ * Open a PMTiles or MBTiles archive from a local path or HTTP URL.
+ *
+ * @param path - File path or HTTP(S) URL of the archive
+ * @returns An initialized Archive instance ready for tile reads
+ * @throws {Error} If the file type is unsupported or the archive cannot be opened
+ */
 export async function openArchive(path: string): Promise<Archive> {
   // HTTP(S) support — only PMTiles over HTTP (MBTiles requires SQLite)
   if (path.startsWith("http://") || path.startsWith("https://")) {

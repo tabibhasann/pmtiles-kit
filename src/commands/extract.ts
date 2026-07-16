@@ -29,7 +29,14 @@ function tileInBbox(z: number, x: number, y: number, bbox: [number, number, numb
   return tileMaxLon >= minLon && tileMinLon <= maxLon && tileMaxLat >= minLat && tileMinLat <= maxLat;
 }
 
-/** Extract tiles from an archive to a directory on disk. */
+/** Extract tiles from an archive to a directory on disk.
+ *
+ * @param src - Path to the source archive
+ * @param dst - Path for the output .pmtiles file
+ * @param opts - Extraction options (minZoom, maxZoom, bbox)
+ * @returns A summary string with extraction stats
+ * @throws {Error} If the archive cannot be opened or no tiles match the filter
+ */
 export async function extractCommand(
   src: string,
   dst: string,

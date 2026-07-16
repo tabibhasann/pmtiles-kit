@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `zxyToTileId()` and `decodeDirectory()` exported for use in custom pipelines
 - `readPMTilesHeader()` for low-level access to PMTiles bytes
 - Tile-deduplication during convert (consecutive identical tiles collapse via runLength)
+- `extract` command — subset an archive by bbox and/or zoom range
+- `scan` command — scan a directory for PMTiles/MBTiles files
+- `compare` command — compare two tile archives tile-by-tile
+- `--verbose` flag on `info` and `scan` commands
 - New tests: `test/writer.test.ts` (6 tests) + `test/roundtrip.test.ts` (2 tests)
 
 ### Fixed

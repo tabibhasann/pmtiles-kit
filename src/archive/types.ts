@@ -8,6 +8,7 @@ export type TileType =
   | "avif"
   | "maplibre";
 
+/** Header metadata for a tile archive (PMTiles or MBTiles). */
 export interface TileArchiveHeader {
   format: "pmtiles" | "mbtiles";
   tileType: TileType | "vector" | "raster";
@@ -20,12 +21,14 @@ export interface TileArchiveHeader {
   vectorLayers?: string[];
 }
 
+/** A tile coordinate in XYZ (slippy map) convention. */
 export interface TileCoordinate {
   z: number;
   x: number;
   y: number;
 }
 
+/** Interface for reading tile archives (PMTiles or MBTiles). */
 export interface Archive {
   getHeader(): Promise<TileArchiveHeader>;
   getMetadata(): Promise<Record<string, unknown>>;
@@ -35,12 +38,14 @@ export interface Archive {
   close(): Promise<void>;
 }
 
+/** Result of validating an archive's structural integrity. */
 export interface ValidationReport {
   valid: boolean;
   errors: string[];
   warnings: string[];
 }
 
+/** Result of converting between archive formats. */
 export interface ConvertReport {
   sourceFormat: string;
   targetFormat: string;

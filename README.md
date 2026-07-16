@@ -1,14 +1,14 @@
 # pmtiles-kit 🗺️
 
+> **Pre-release:** this package is not yet published to npm. Install from a checkout; scoped `npm`/`npx` commands below describe the intended release interface.
+
 **The missing Swiss-army knife for PMTiles and MBTiles.** Inspect, validate, convert, and preview map tile archives with a single command. Efficient conversion, progress indicators, and CI/CD integration.
 
-[![npm version](https://img.shields.io/npm/v/@tabibhasan/pmtiles-kit)](https://npmjs.com/package/@tabibhasan/pmtiles-kit)
 [![Node.js](https://img.shields.io/badge/node-%3E%3D18.0.0-brightgreen.svg)](https://nodejs.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![CI](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/tabibhasann/pmtiles-kit/actions/workflows/ci.yml)
-[![Coverage](https://img.shields.io/badge/coverage-71%25-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
-[![Tests](https://img.shields.io/badge/tests-170%20passed-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
-[![Downloads](https://img.shields.io/npm/dm/@tabibhasan/pmtiles-kit)](https://npmjs.com/package/@tabibhasan/pmtiles-kit)
+[![Coverage](https://img.shields.io/badge/coverage-78%25-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
+[![Tests](https://img.shields.io/badge/tests-186%20passed-brightgreen)](https://github.com/tabibhasann/pmtiles-kit/actions)
 
 
 **Demo:** Example output: see [Quickstart](#quickstart) above
@@ -44,8 +44,8 @@ Map tile archives (PMTiles, MBTiles) are the backbone of modern web mapping, but
 | [tippecanoe](https://github.com/felt/tippecanoe) | C++ | ❌ | ❌ | ✅ (GeoJSON→PMTiles) | ❌ | ❌ |
 | [mb-util](https://github.com/mapbox/mbutil) | Python | ❌ | ❌ | ✅ (MBTiles↔tile dir) | ❌ | ❌ |
 
-pmtiles-kit is the only npm-native tool that combines inspect, validate, convert,
-and preview in a single CLI + library.
+pmtiles-kit combines inspect, validate, convert, and preview workflows in one
+npm-native CLI and library.
 
 - ✅ **Unified API** — Work with PMTiles and MBTiles using the same interface
 - ✅ **Efficient conversion** — O(n) tile iteration with spatial indexing (not brute-force)
@@ -70,11 +70,14 @@ npx @tabibhasan/pmtiles-kit convert map.mbtiles map.pmtiles
 
 | Command | Description |
 |---------|-------------|
-| `info <file> [--json]` | Show header, metadata, tile stats |
+| `info <file> [--json] [--verbose]` | Show header, metadata, tile stats |
 | `validate <file> [--json] [--strict]` | Structural checks, exits 1 if invalid. `--strict` treats warnings as errors |
 | `convert <in> <out>` | MBTiles ↔ PMTiles (handles Y-flip) |
 | `serve <file> [-p 8080]` | Local tile server + MapLibre viewer |
 | `tile <file> -z Z -x X -y Y` | Dump a single tile |
+| `extract <in> <out> [--bbox s,w,n,e] [--minzoom Z] [--maxzoom Z]` | Subset by bbox and/or zoom range |
+| `scan <dir> [--json] [--verbose]` | Scan a directory for PMTiles/MBTiles files |
+| `compare <a> <b> [--json]` | Compare two tile archives tile-by-tile |
 
 ## Library API
 
@@ -90,23 +93,18 @@ await archive.close();
 ### Programmatic conversion
 
 ```ts
-import { convertMbtilesToPmtiles } from "@tabibhasan/pmtiles-kit";
+import { writePMTilesFile, zxyToTileId } from "@tabibhasan/pmtiles-kit";
+import { openArchive } from "@tabibhasan/pmtiles-kit";
 
-await convertMbtilesToPmtiles("input.mbtiles", "output.pmtiles", {
-  onProgress: (done, total) => console.log(`${done}/${total} tiles`),
-});
-```
-
-### Programmatic validation
-
-```ts
-import { validateArchive } from "@tabibhasan/pmtiles-kit";
-
-const result = await validateArchive("map.pmtiles", { strict: true });
-if (!result.valid) {
-  for (const err of result.errors) console.error(err);
-  process.exit(1);
+// Read tiles from an MBTiles archive and write a PMTiles file
+const src = await openArchive("input.mbtiles");
+const header = await src.getHeader();
+const entries: { tileId: number; data: Uint8Array }[] = [];
+for await (const { z, x, y, data } of src.iterTiles()) {
+  entries.push({ tileId: zxyToTileId(z, x, y), data });
 }
+await writePMTilesFile("output.pmtiles", header, entries);
+await src.close();
 ```
 
 ## CI/CD Integration
@@ -139,10 +137,22 @@ See the [`examples/`](examples/) directory for complete scripts:
 
 MBTiles uses TMS (Y origin: bottom), PMTiles uses XYZ (Y origin: top). Every tile read from MBTiles automatically flips Y so the library API is always XYZ. Conversion between formats preserves tile data correctly.
 
+## Alternatives
+
+| Tool | Type | Scope | CLI | Convert | Validate | Preview | npm |
+|------|------|-------|-----|---------|----------|---------|-----|
+| **pmtiles-kit** | CLI + library | PMTiles + MBTiles inspect/validate/convert/preview | Yes | Both | Yes | MapLibre viewer | Yes |
+| [pmtiles CLI](https://github.com/protomaps/PMTiles/tree/main/js) | CLI | PMTiles show/extract only | Yes | No | No | No | No |
+| [tippecanoe](https://github.com/felt/tippecanoe) | CLI | GeoJSON → MBTiles/PMTiles creation | Yes | No | No | No | No |
+| [mbtiletool](https://github.com/mapbox/mbutil) | CLI | MBTiles export/import | Yes | No | No | No | No |
+| [tileserver-gl](https://github.com/maptiler/tileserver-gl) | Server | Serve MBTiles/PMTiles | No | No | No | Yes | No |
+
+**Why pmtiles-kit?** It's the only tool that combines inspection, validation, format conversion (PMTiles ↔ MBTiles), a built-in MapLibre preview server, and directory scanning in a single npm-installable CLI — purpose-built for CI/CD and local workflows.
+
 ## Roadmap
 
 **What works now:**
-- `info`, `validate`, `convert`, `serve`, `tile`, `extract` commands
+- `info`, `validate`, `convert`, `serve`, `tile`, `extract`, `scan`, `compare` commands
 - PMTiles and MBTiles support with automatic Y-flip
 - MapLibre GL preview server
 - TypeScript library API
@@ -151,44 +161,21 @@ MBTiles uses TMS (Y origin: bottom), PMTiles uses XYZ (Y origin: top). Every til
 
 **Planned:**
 - HTTP range reads for remote PMTiles archives
-- Directory traversal (`pmtiles-kit info ./tiles/`)
 - Large fixture tests (1GB+ archive handling)
-- `pmtiles-kit preview --port 3000` with style picker
-
-## API
-
-### CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `pmtiles-kit inspect <file>` | Print metadata, header, and structure |
-| `pmtiles-kit validate <file>` | Validate PMTiles/MBTiles format |
-| `pmtiles-kit convert <in> <out>` | Convert between PMTiles and MBTiles |
-| `pmtiles-kit preview <file>` | Start local preview server |
-| `pmtiles-kit tiles <file> --z 5` | List tiles at a specific zoom level |
-
-### Programmatic API
-
-```typescript
-import { inspect, validate, convert } from 'pmtiles-kit';
-
-// Inspect a PMTiles file
-const info = await inspect('data.pmtiles');
-
-// Validate file integrity
-const result = await validate('data.pmtiles');
-
-// Convert PMTiles to MBTiles
-await convert('data.pmtiles', 'data.mbtiles');
-```
-
+- `pmtiles-kit serve --port 3000` with style picker
 
 ## CLI Reference
 
-\`\`\`bash
-pmtiles-kit --help     # Show all available commands and options
-pmtiles-kit --version  # Print the installed version
-\`\`\`
+```bash
+pmtiles-kit --help          # Show all available commands and options
+pmtiles-kit --version       # Print the installed version
+pmtiles-kit info map.pmtiles --json
+pmtiles-kit validate map.pmtiles --strict --json
+pmtiles-kit convert map.mbtiles map.pmtiles
+pmtiles-kit extract map.pmtiles subset.pmtiles --bbox 23,90,24,91 --minzoom 0 --maxzoom 10
+pmtiles-kit scan ./tiles/ --json
+pmtiles-kit compare old.pmtiles new.pmtiles --json
+```
 
 ## Contributing
 

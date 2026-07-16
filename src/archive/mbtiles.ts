@@ -2,15 +2,23 @@ import Database from "better-sqlite3";
 import { Archive, TileArchiveHeader, TileCoordinate } from "./types";
 import { tmsToXYZ } from "../util/bytes";
 
+/**
+ * MBTiles archive reader using `better-sqlite3`.
+ *
+ * Reads tiles from a SQLite-based MBTiles database, converting TMS Y coordinates
+ * to XYZ on the fly so callers always get XYZ tiles.
+ */
 export class MBTilesArchive implements Archive {
   private db: Database.Database | null = null;
   private _header: TileArchiveHeader | null = null;
   private path: string;
 
+  /** @param path - Path to the .mbtiles file */
   constructor(path: string) {
     this.path = path;
   }
 
+  /** Open the SQLite database and read the header. Must be called before any other method. */
   init(): void {
     this.db = new Database(this.path, { readonly: true });
     this._header = this._readHeader();
@@ -104,10 +112,15 @@ export class MBTilesArchive implements Archive {
     return row?.count ?? 0;
   }
 
+  /** @returns The parsed archive header */
   async getHeader(): Promise<TileArchiveHeader> {
     return this._header!;
   }
 
+  /**
+   * @returns The metadata table as a key-value object
+   * @throws {Error} If the database has not been initialized
+   */
   async getMetadata(): Promise<Record<string, unknown>> {
     if (!this.db) throw new Error("Database not initialized");
     const rows = this.db
@@ -124,6 +137,13 @@ export class MBTilesArchive implements Archive {
    * CRITICAL: MBTiles uses TMS (Y origin bottom), but our API uses XYZ (top).
    * We flip Y on read so callers always get XYZ tiles.
    */
+  /**
+   * @param z - Zoom level
+   * @param x - Tile column (XYZ)
+   * @param y - Tile row (XYZ, will be converted to TMS internally)
+   * @returns The tile bytes, or undefined if the tile doesn't exist
+   * @throws {Error} If the database has not been initialized
+   */
   async getTile(
     z: number,
     x: number,
@@ -139,6 +159,7 @@ export class MBTilesArchive implements Archive {
     return row ? new Uint8Array(row.tile_data) : undefined;
   }
 
+  /** @returns Array of zoom levels present in the archive */
   async listZooms(): Promise<number[]> {
     if (!this.db) return [];
     const rows = this.db
@@ -147,6 +168,7 @@ export class MBTilesArchive implements Archive {
     return rows.map((r) => r.zoom_level);
   }
 
+  /** @returns An async iterable of tile coordinates (in XYZ) in the archive */
   async *listTiles(): AsyncIterable<TileCoordinate> {
     if (!this.db) return;
     
@@ -165,6 +187,7 @@ export class MBTilesArchive implements Archive {
     }
   }
 
+  /** Close the SQLite database connection. */
   async close(): Promise<void> {
     if (this.db) {
       this.db.close();

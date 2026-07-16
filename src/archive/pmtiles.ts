@@ -11,11 +11,20 @@ function lonLatToTile(lon: number, lat: number, zoom: number): { x: number; y: n
   return { x, y };
 }
 
+/**
+ * PMTiles archive reader using the `pmtiles` npm library.
+ *
+ * Supports local files (via NodeFileSource) and HTTP URLs (via HttpRangeSource).
+ */
 export class PMTilesArchive implements Archive {
   private pmtiles: PMTiles | null = null;
   private _header: TileArchiveHeader | null = null;
   private path: string;
 
+  /**
+   * @param path - Path to the .pmtiles file
+   * @param source - Optional pre-configured source (e.g. HttpRangeSource for remote archives)
+   */
   constructor(path: string, source?: unknown) {
     this.path = path;
     if (source) {
@@ -23,6 +32,7 @@ export class PMTilesArchive implements Archive {
     }
   }
 
+  /** Initialize the archive by reading the header and metadata. Must be called before any other method. */
   async init(): Promise<void> {
     if (!this.pmtiles) {
       this.pmtiles = new PMTiles(new NodeFileSource(this.path) as unknown as ConstructorParameters<typeof PMTiles>[0]);
@@ -69,15 +79,27 @@ export class PMTilesArchive implements Archive {
     };
   }
 
+  /** @returns The parsed archive header */
   async getHeader(): Promise<TileArchiveHeader> {
     return this._header!;
   }
 
+  /**
+   * @returns The archive metadata as a key-value object
+   * @throws {Error} If the archive has not been initialized
+   */
   async getMetadata(): Promise<Record<string, unknown>> {
     if (!this.pmtiles) throw new Error("Archive not initialized");
     return ((await this.pmtiles.getMetadata()) || {}) as Record<string, unknown>;
   }
 
+  /**
+   * @param z - Zoom level
+   * @param x - Tile column (XYZ)
+   * @param y - Tile row (XYZ)
+   * @returns The tile bytes, or undefined if the tile doesn't exist
+   * @throws {Error} If the archive has not been initialized
+   */
   async getTile(
     z: number,
     x: number,
@@ -90,6 +112,7 @@ export class PMTilesArchive implements Archive {
     return new Uint8Array(resp.data);
   }
 
+  /** @returns Array of zoom levels present in the archive */
   async listZooms(): Promise<number[]> {
     if (!this._header) return [];
     const zooms: number[] = [];
@@ -99,6 +122,7 @@ export class PMTilesArchive implements Archive {
     return zooms;
   }
 
+  /** @returns An async iterable of tile coordinates in the archive */
   async *listTiles(): AsyncIterable<TileCoordinate> {
     if (!this.pmtiles || !this._header) return;
 
@@ -133,6 +157,7 @@ export class PMTilesArchive implements Archive {
     }
   }
 
+  /** Release any resources held by the archive. */
   async close(): Promise<void> {
     // PMTiles lib doesn't need explicit close for file-based access
   }

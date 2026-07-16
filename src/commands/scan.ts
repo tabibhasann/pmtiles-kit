@@ -37,7 +37,14 @@ function findArchives(dir: string, results: string[] = []): string[] {
   return results;
 }
 
-/** Scan a directory for tile archives and report their metadata. */
+/** Scan a directory for tile archives and report their metadata.
+ *
+ * @param dir - Directory to scan recursively
+ * @param json - If true, output as JSON; otherwise human-readable text
+ * @param verbose - If true, include errors for skipped files
+ * @returns A formatted scan report string
+ * @throws {Error} If the directory doesn't exist
+ */
 export async function scanCommand(
   dir: string,
   json: boolean = false,

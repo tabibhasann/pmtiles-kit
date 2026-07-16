@@ -8,27 +8,36 @@
  * Requires `gh` (GitHub CLI) to be authenticated.
  */
 
-import { execSync } from "child_process";
+import { execFileSync } from "child_process";
 import { writeFileSync } from "fs";
 
-function run(cmd) {
+function run(command, args = []) {
   try {
-    return execSync(cmd, { encoding: "utf-8" }).trim();
+    return execFileSync(command, args, { encoding: "utf-8" }).trim();
   } catch {
     return null;
   }
 }
 
 function getLastTag() {
-  return run("git describe --tags --abbrev=0");
+  return run("git", ["describe", "--tags", "--abbrev=0"]);
 }
 
 function getMergedPRs(sinceTag) {
-  let cmd = "gh pr list --state merged --limit 100 --json number,title,author,mergedAt";
+  const args = [
+    "pr",
+    "list",
+    "--state",
+    "merged",
+    "--limit",
+    "100",
+    "--json",
+    "number,title,author,mergedAt",
+  ];
   if (sinceTag) {
-    cmd += ` --search "merged:>=${sinceTag}"`;
+    args.push("--search", `merged:>=${sinceTag}`);
   }
-  const raw = run(cmd);
+  const raw = run("gh", args);
   if (!raw) return [];
   try {
     return JSON.parse(raw).map((item) => ({

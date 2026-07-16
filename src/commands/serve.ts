@@ -1,5 +1,13 @@
 import http from "http";
+import { randomBytes } from "crypto";
 import { openArchive } from "../archive/open";
+import { isAllowedLoopbackHost } from "../security";
+
+const MAPLIBRE_VERSION = "4.7.1";
+const MAPLIBRE_JS_INTEGRITY =
+  "sha384-SYKAG6cglRMN0RVvhNeBY0r3FYKNOJtznwA0v7B5Vp9tr31xAHsZC0DqkQ/pZDmj";
+const MAPLIBRE_CSS_INTEGRITY =
+  "sha384-MinO0mNliZ3vwppuPOUnGa+iq619pfMhLVUXfC4LHwSCvF9H+6P/KO4Q7qBOYV5V";
 
 const VIEWER_HTML = `<!DOCTYPE html>
 <html lang="en">
@@ -7,8 +15,8 @@ const VIEWER_HTML = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>pmtiles-kit Viewer</title>
-<script src="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.js"></script>
-<link href="https://unpkg.com/maplibre-gl@4/dist/maplibre-gl.css" rel="stylesheet">
+<script src="https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.js" integrity="${MAPLIBRE_JS_INTEGRITY}" crossorigin="anonymous"></script>
+<link href="https://unpkg.com/maplibre-gl@${MAPLIBRE_VERSION}/dist/maplibre-gl.css" rel="stylesheet" integrity="${MAPLIBRE_CSS_INTEGRITY}" crossorigin="anonymous">
 <style>
   body { margin: 0; padding: 0; }
   #map { position: absolute; top: 0; bottom: 0; width: 100%; }
@@ -18,7 +26,7 @@ const VIEWER_HTML = `<!DOCTYPE html>
 <body>
 <div class="info" id="info"></div>
 <div id="map"></div>
-<script>
+<script nonce="__NONCE__">
 const header = __HEADER__;
 const tileJson = __TILEJSON__;
 
@@ -41,17 +49,67 @@ const map = new maplibregl.Map({
 });
 
 map.on("load", () => {
-  document.getElementById("info").innerHTML =
-    "<b>" + header.format.toUpperCase() + "</b><br>" +
-    "Type: " + header.tileType + "<br>" +
-    "Zooms: " + header.minZoom + "-" + header.maxZoom + "<br>" +
-    "Tiles: " + header.tileCount;
+  const info = document.getElementById("info");
+  const format = document.createElement("strong");
+  format.textContent = String(header.format).toUpperCase();
+  info.append(
+    format,
+    document.createElement("br"),
+    document.createTextNode("Type: " + String(header.tileType)),
+    document.createElement("br"),
+    document.createTextNode("Zooms: " + String(header.minZoom) + "-" + String(header.maxZoom)),
+    document.createElement("br"),
+    document.createTextNode("Tiles: " + String(header.tileCount)),
+  );
 });
 </script>
 </body>
 </html>`;
 
-/** Start a local HTTP server serving tiles from a PMTiles or MBTiles archive. */
+/** Serialize untrusted archive metadata for safe embedding in a JavaScript script block.
+ *
+ * @param value - The value to serialize
+ * @returns A JSON string with HTML-unsafe characters escaped
+ */
+export function serializeForInlineScript(value: unknown): string {
+  const json = JSON.stringify(value) ?? "null";
+  return json
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
+/** Build the viewer document without rescanning inserted values for placeholders.
+ *
+ * @param header - The archive header object
+ * @param tileJson - The TileJSON object
+ * @param nonce - CSP nonce for the script tag
+ * @returns A complete HTML document string
+ */
+export function buildViewerHtml(
+  header: unknown,
+  tileJson: unknown,
+  nonce: string
+): string {
+  const replacements: Record<string, string> = {
+    __HEADER__: serializeForInlineScript(header),
+    __TILEJSON__: serializeForInlineScript(tileJson),
+    __NONCE__: nonce,
+  };
+  return VIEWER_HTML.replace(
+    /__(?:HEADER|TILEJSON|NONCE)__/g,
+    (placeholder) => replacements[placeholder]
+  );
+}
+
+/** Start a local HTTP server serving tiles from a PMTiles or MBTiles archive.
+ *
+ * @param file - Path to the archive
+ * @param port - Port to listen on (default 8080)
+ * @throws {Error} If the archive cannot be opened
+ */
 export async function serveCommand(
   file: string,
   port: number = 8080
@@ -59,7 +117,7 @@ export async function serveCommand(
   const archive = await openArchive(file);
   const header = await archive.getHeader();
 
-  const tilesUrl = `http://localhost:${port}/tiles/{z}/{x}/{y}`;
+  const tilesUrl = "/tiles/{z}/{x}/{y}";
 
   let style: Record<string, unknown> | null = null;
 
@@ -110,7 +168,7 @@ export async function serveCommand(
     };
   }
 
-  const tileJson = JSON.stringify({
+  const tileJson = {
     tilejson: "3.0.0",
     tiles: [tilesUrl],
     minzoom: header.minZoom,
@@ -118,19 +176,40 @@ export async function serveCommand(
     bounds: header.bounds,
     center: header.center,
     style,
-  });
+  };
 
-  const viewer = VIEWER_HTML.replace("__HEADER__", JSON.stringify(header)).replace(
-    "__TILEJSON__",
-    tileJson
-  );
+  const nonce = randomBytes(18).toString("base64url");
+  const viewer = buildViewerHtml(header, tileJson, nonce);
+  const viewerHeaders = {
+    "Content-Type": "text/html; charset=utf-8",
+    "Cache-Control": "no-store",
+    "Content-Security-Policy": [
+      "default-src 'none'",
+      `script-src 'nonce-${nonce}' https://unpkg.com`,
+      "style-src 'unsafe-inline' https://unpkg.com",
+      "img-src 'self' data: blob:",
+      "connect-src 'self'",
+      "worker-src blob:",
+      "font-src data:",
+      "base-uri 'none'",
+      "form-action 'none'",
+      "frame-ancestors 'none'",
+    ].join("; "),
+    "Referrer-Policy": "no-referrer",
+    "X-Content-Type-Options": "nosniff",
+  };
 
   const server = http.createServer(async (req, res) => {
+    if (!isAllowedLoopbackHost(req.headers.host)) {
+      res.writeHead(403, { "Content-Type": "text/plain; charset=utf-8" });
+      res.end("Forbidden host");
+      return;
+    }
     const url = new URL(req.url || "/", `http://localhost:${port}`);
 
     // Serve MapLibre viewer at root
     if (url.pathname === "/" || url.pathname === "/index.html") {
-      res.writeHead(200, { "Content-Type": "text/html" });
+      res.writeHead(200, viewerHeaders);
       res.end(viewer);
       return;
     }
@@ -159,7 +238,6 @@ export async function serveCommand(
           res.writeHead(200, {
             "Content-Type": contentType,
             "Content-Encoding": header.compression === "gzip" ? "gzip" : "identity",
-            "Access-Control-Allow-Origin": "*",
           });
           res.end(Buffer.from(tile));
         } else {
@@ -177,7 +255,7 @@ export async function serveCommand(
     res.end("Not found");
   });
 
-  server.listen(port, () => {
+  server.listen(port, "127.0.0.1", () => {
     console.log(`\n  pmtiles-kit viewer: http://localhost:${port}/\n`);
     console.log(`  Tile endpoint: http://localhost:${port}/tiles/{z}/{x}/{y}\n`);
     console.log("  Press Ctrl+C to stop\n");
