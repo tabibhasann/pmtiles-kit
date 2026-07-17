@@ -9,6 +9,7 @@ import { tileCommand } from "./commands/tile";
 import { extractCommand, ExtractOptions } from "./commands/extract";
 import { scanCommand } from "./commands/scan";
 import { compareCommand } from "./commands/compare";
+import { statsCommand } from "./commands/stats";
 import { writeFileSync } from "fs";
 
 const program = new Command();
@@ -150,6 +151,20 @@ program
   .action(async (a: string, b: string, options: { json?: boolean }) => {
     try {
       const output = await compareCommand(a, b, !!options.json);
+      console.log(output);
+    } catch (e) {
+      console.error("Error:", e);
+      process.exit(1);
+    }
+  });
+
+program
+  .command("stats <file>")
+  .description("Show per-zoom-level tile statistics")
+  .option("--json", "Output as JSON")
+  .action(async (file: string, options: { json?: boolean }) => {
+    try {
+      const output = await statsCommand(file, !!options.json);
       console.log(output);
     } catch (e) {
       console.error("Error:", e);
