@@ -5,6 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0](https://github.com/tabibhasann/pmtiles-kit/compare/pmtiles-kit-v0.2.0...pmtiles-kit-v0.3.0) (2026-07-17)
+
+
+### Features
+
+* add JSDoc to all exports, tests for extract/tile commands, alternatives table ([c9d4814](https://github.com/tabibhasann/pmtiles-kit/commit/c9d481441d9022994410d7365da2846efde506d5))
+* add stats command for per-zoom tile statistics ([0d81db1](https://github.com/tabibhasann/pmtiles-kit/commit/0d81db138b1ee6ea681fc0a15f7c9ce4d07e9d6c))
+
+
+### Bug Fixes
+
+* add missing private field declarations in NodeFileSource ([6154b38](https://github.com/tabibhasann/pmtiles-kit/commit/6154b38e349204be1f45914a0eeaecf767d684cc))
+* prevent null header returns, fix db handle leak in convertToMBTiles ([6efebbc](https://github.com/tabibhasann/pmtiles-kit/commit/6efebbc10b2801d6275bfb706a43e2c558d67c39))
+
 ## [0.2.0] - 2026-06-16
 
 ### Added
